@@ -1,0 +1,15 @@
+generated: '2026-07-19'
+method: derived
+source: openapi/hedra-web-api-openapi-original.json
+summary:
+  types:
+  - apiKey
+  api_key_in:
+  - header
+schemes:
+- name: APIKeyHeader
+  type: apiKey
+  in: header
+  parameter: X-API-Key
+  sources:
+  - openapi/hedra-web-api-openapi-original.json
