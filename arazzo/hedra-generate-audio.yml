@@ -1,0 +1,61 @@
+arazzo: 1.0.1
+info:
+  title: Hedra — Generate text-to-speech audio
+  version: 1.0.0
+  summary: Pick a voice, submit a text-to-speech generation, and poll for the audio.
+sourceDescriptions:
+- name: hedra
+  url: ../openapi/hedra-web-api-openapi-original.json
+  type: openapi
+workflows:
+- workflowId: generateAudio
+  summary: List voices, submit a text-to-speech generation, poll to completion.
+  inputs:
+    type: object
+    required: [api_key, voice_id, text]
+    properties:
+      api_key: { type: string }
+      voice_id: { type: string }
+      text: { type: string }
+      model_slug: { type: string, default: "" }
+  steps:
+  - stepId: listVoices
+    description: List available voices (optional discovery step).
+    operationId: list_voices_public_voices_get
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    successCriteria:
+    - condition: $statusCode == 200
+  - stepId: submitTTS
+    description: Submit the text-to-speech generation.
+    operationId: generate_asset_public_generations_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    requestBody:
+      contentType: application/json
+      payload:
+        type: text_to_speech
+        voice_id: $inputs.voice_id
+        text: $inputs.text
+        model_slug: $inputs.model_slug
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      generation_id: $response.body#/id
+  - stepId: pollStatus
+    description: Poll until the audio generation completes.
+    operationId: get_status_public_generations__generation_id__status_get
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - { name: generation_id, in: path, value: $steps.submitTTS.outputs.generation_id }
+    successCriteria:
+    - condition: $statusCode == 200
+    - context: $response.body
+      condition: $.status == "complete"
+      type: jsonpath
+    outputs:
+      url: $response.body#/url
+      download_url: $response.body#/download_url
+  outputs:
+    generation_id: $steps.submitTTS.outputs.generation_id
+    url: $steps.pollStatus.outputs.url

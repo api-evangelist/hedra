@@ -1,0 +1,21 @@
+generated: '2026-07-19'
+method: searched
+source: https://github.com/hedra-labs/hedra-cli
+spec_type: Webhooks
+note: >-
+  Hedra advertises webhooks: the official hedra CLI exposes a `webhooks` command described as
+  "Access webhook configuration and public keys", indicating webhook delivery with public-key
+  signature verification. No published AsyncAPI document or a fully enumerated event catalog was
+  found on the developer docs as of this pass, so specific event names are NOT asserted here to
+  avoid fabrication. Given the submit-then-poll generation model, webhooks are the push-based
+  alternative to polling GET /public/generations/{generation_id}/status for completion.
+delivery:
+  transport: http-callback
+  signature: public-key (verification keys retrievable via `hedra webhooks`)
+management:
+  cli: hedra webhooks
+  note: Webhook configuration and signing public keys are managed through the CLI / developer account.
+events:
+  status: not-enumerated
+  likely_surface: generation lifecycle (status transitions to complete / error)
+  caveat: Event names not published in the public docs reviewed; left unspecified rather than invented.

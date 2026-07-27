@@ -1,0 +1,30 @@
+overlay: 1.0.0
+info:
+  title: API Evangelist enhancements for Hedra Web API
+  version: 1.0.0
+extends: openapi/hedra-web-api-openapi-original.json
+actions:
+- target: $.info
+  update:
+    x-apievangelist-provider: hedra
+    x-apievangelist-category: generative-media
+    x-apievangelist-auth: api-key-header
+    x-apievangelist-async: submit-then-poll
+    x-apievangelist-webhooks: true
+    x-apievangelist-links:
+      documentation: https://www.hedra.com/docs
+      quickstart: https://www.hedra.com/docs/pages/developer/getting_started/quickstart
+      pricing: https://www.hedra.com/pricing
+      status: https://status.hedra.com/
+- target: $.servers
+  update:
+    x-apievangelist-host: https://api.hedra.com/web-app
+- target: $.paths./public/generations.post
+  update:
+    x-apievangelist-note: >-
+      Asynchronous — returns a Generation in queued/processing state. Poll
+      /public/generations/{generation_id}/status until status is complete or error, or subscribe
+      to webhooks. Billed against account credits (see /public/billing/credits).
+- target: $.paths./public/generations/{generation_id}/status.get
+  update:
+    x-apievangelist-note: Poll for status/progress; read url/download_url/streaming_url when status=complete.

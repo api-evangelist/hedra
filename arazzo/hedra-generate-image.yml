@@ -1,0 +1,71 @@
+arazzo: 1.0.1
+info:
+  title: Hedra — Generate an image from a text prompt
+  version: 1.0.0
+  summary: Submit an image generation and poll until the image is ready.
+sourceDescriptions:
+- name: hedra
+  url: ../openapi/hedra-web-api-openapi-original.json
+  type: openapi
+workflows:
+- workflowId: generateImage
+  summary: Create an image generation from a text prompt and poll for the result.
+  description: >-
+    Uses model_slug to select an image model, submits a generation (type=image), then polls the
+    status endpoint until status is complete and reads the output URL.
+  inputs:
+    type: object
+    required: [api_key, text_prompt]
+    properties:
+      api_key:
+        type: string
+        description: Hedra API key sent as X-API-Key.
+      text_prompt:
+        type: string
+      model_slug:
+        type: string
+        default: ""
+      aspect_ratio:
+        type: string
+        default: "16:9"
+  steps:
+  - stepId: submitImage
+    description: Submit the image generation job.
+    operationId: generate_asset_public_generations_post
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    requestBody:
+      contentType: application/json
+      payload:
+        type: image
+        text_prompt: $inputs.text_prompt
+        model_slug: $inputs.model_slug
+        aspect_ratio: $inputs.aspect_ratio
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      generation_id: $response.body#/id
+  - stepId: pollStatus
+    description: Poll until the generation completes.
+    operationId: get_status_public_generations__generation_id__status_get
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    - name: generation_id
+      in: path
+      value: $steps.submitImage.outputs.generation_id
+    successCriteria:
+    - condition: $statusCode == 200
+    - context: $response.body
+      condition: $.status == "complete"
+      type: jsonpath
+    outputs:
+      status: $response.body#/status
+      url: $response.body#/url
+      download_url: $response.body#/download_url
+  outputs:
+    generation_id: $steps.submitImage.outputs.generation_id
+    url: $steps.pollStatus.outputs.url

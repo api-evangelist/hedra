@@ -1,0 +1,37 @@
+generated: '2026-07-19'
+method: searched
+source: https://github.com/hedra-labs/hedra-cli
+name: hedra
+language: rust
+license: Apache-2.0
+repository: https://github.com/hedra-labs/hedra-cli
+install:
+- method: source
+  command: git clone https://github.com/hedra-labs/hedra-cli && cd hedra-cli && cargo build --release
+- method: homebrew
+  status: planned
+  note: Prebuilt installers (shell / PowerShell / Homebrew) are produced by the release workflow once a tagged release is published.
+auth:
+  command: hedra auth
+  note: Credential management; also mint/rotate keys via the `keys` command. Uses X-API-Key against api.hedra.com/web-app.
+commands:
+- name: queue
+  description: Submit generation jobs to the inference queue.
+- name: requests
+  description: List, retrieve status, stream results, and fetch completed requests.
+- name: models
+  description: Browse the model catalog and retrieve schemas.
+- name: files
+  description: Upload files for use as input references (assets).
+- name: keys
+  description: Manage API keys (create, list, rotate, revoke).
+- name: tokens
+  description: Mint ephemeral browser tokens.
+- name: webhooks
+  description: Access webhook configuration and public keys.
+- name: auth
+  description: Built-in credential management.
+- name: completion
+  description: Shell integration / completion scripts.
+- name: man
+  description: Generate man-page documentation.

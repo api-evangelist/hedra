@@ -1,0 +1,14 @@
+{
+  "provider": "hedra",
+  "sources": [
+    "hedra-public-api-openapi.yml"
+  ],
+  "outputs": [
+    "hedra-public-api-openapi.yml"
+  ],
+  "archived": [],
+  "errors": [],
+  "warnings": [],
+  "notes": [],
+  "skipped": []
+}

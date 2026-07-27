@@ -1,0 +1,36 @@
+# Hedra
+
+> Hedra is a generative-media AI lab and creative platform for producing image, video, and audio content via a web studio and a developer API. Its Character-3 model powers expressive character/avatar video, and the platform brokers leading partner models (Veo, Kling, Grok, Nano Banana Pro, Flux, Sana) behind one credit-based account. The Hedra Web API is authenticated with an X-API-Key header and follows a submit-then-poll model for generations.
+
+## APIs
+- [Hedra Web API docs](https://www.hedra.com/docs): Generate images, videos, avatar videos, and audio; manage assets, voices, and billing credits.
+- [API Quickstart](https://www.hedra.com/docs/pages/developer/getting_started/quickstart): Purchase a paid plan, register an API key at hedra.com/develop/api-keys, and make your first call.
+- Base URL: https://api.hedra.com/web-app
+- Auth: X-API-Key header
+
+## Specs
+- [OpenAPI 3.1 (raw)](https://raw.githubusercontent.com/api-evangelist/hedra/refs/heads/main/openapi/hedra-web-api-openapi-original.json)
+
+## Operations
+- GET /public/models — list available generation models
+- GET /public/voices — list voices for text-to-speech
+- GET /public/assets — list uploaded/generated assets
+- POST /public/assets — create (reserve) an asset
+- POST /public/assets/{id}/upload — upload media for an asset
+- GET /public/generations — list generations (paged)
+- POST /public/generations — submit a generation (image/video/avatar/TTS/voice-clone/upscale/…)
+- GET /public/generations/{generation_id}/status — poll generation status/progress
+- GET /public/billing/credits — read credit balance
+
+## SDKs
+- [hedra-python (PyPI)](https://pypi.org/project/hedra-python/) — official Python SDK
+- [hedra-node (GitHub)](https://github.com/hedra-labs/hedra-node) — official JavaScript/TypeScript SDK
+- [hedra-cli (GitHub)](https://github.com/hedra-labs/hedra-cli) — official Rust CLI
+
+## Docs
+- [Guides: Generate Image / Video / Avatar / Audio](https://www.hedra.com/docs)
+- [Pricing (credit-based)](https://www.hedra.com/pricing)
+- [Status](https://status.hedra.com/)
+- [GitHub org](https://github.com/hedra-labs)
+- [Terms](https://www.hedra.com/terms)
+- [Privacy](https://www.hedra.com/privacy)

@@ -1,0 +1,58 @@
+generated: '2026-07-19'
+method: derived
+source: openapi/hedra-web-api-openapi-original.json
+docs: https://www.hedra.com/docs/pages/developer/getting_started/quickstart
+authentication:
+  style: api-key
+  header: X-API-Key
+  note: A paid Hedra account and API credits are required. Keys are managed at https://www.hedra.com/develop/api-keys.
+base_url: https://api.hedra.com/web-app
+resource_prefix: /public
+pagination:
+  style: limit-offset
+  params:
+    limit: Number of items returned in the page (default 100).
+    offset: Number of records skipped (default 0).
+  response_fields:
+    page_info: PageInfo { limit, offset }
+  applies_to:
+  - GET /public/generations (PagedResponse_Generation_)
+async_model:
+  pattern: submit-then-poll
+  description: >-
+    Generations are asynchronous. POST /public/generations returns a Generation with a status of
+    queued/processing; poll GET /public/generations/{generation_id}/status until status is
+    `complete` (then read url/download_url/streaming_url) or `error`. `progress` (0-1) and
+    `eta_sec` / `estimated_completion_at` are provided for progress tracking.
+  statuses: [queued, processing, finalizing, complete, error]
+idempotency:
+  documented: false
+  note: >-
+    No Idempotency-Key header is documented. Clients MAY supply a pre-reserved `generation_id` /
+    `generation_ids` (and `reserved_asset_id` / `reserved_asset_ids`) on generation requests to
+    control the produced ids and de-duplicate resubmissions, which provides a client-driven
+    idempotency-adjacent mechanism, but this is not a formal idempotency contract.
+error_envelope:
+  generation_errors: "GenerationError { type: ErrorCode, message } surfaced via Generation.error / error_message once status=error"
+  validation_errors: "HTTP 422 HTTPValidationError { detail: ValidationError[] }"
+  catalog: errors/hedra-error-codes.yml
+model_selection:
+  field: model_slug
+  deprecated_field: ai_model_id
+  note: Select models by stable cross-environment `model_slug`; `ai_model_id` (UUID) is deprecated.
+batch:
+  field: batch_size
+  note: Image and video generations accept batch_size 1-8; results link via batch_generation_id.
+rate_limiting:
+  documented: false
+  note: >-
+    Docs state default plans have "low rate limits"; configurable rate limits and volume pricing
+    are available via enterprise sales. No numeric limits or rate-limit response headers are published.
+webhooks:
+  supported: true
+  note: The hedra CLI exposes a `webhooks` command to access webhook configuration and public keys (signature verification). See asyncapi/hedra-webhooks.yml.
+cross_reference:
+  authentication: authentication/hedra-authentication.yml
+  errors: errors/hedra-error-codes.yml
+  lifecycle: lifecycle/hedra-lifecycle.yml
+  data_model: data-model/hedra-data-model.yml

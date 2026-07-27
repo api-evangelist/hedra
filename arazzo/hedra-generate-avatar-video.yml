@@ -1,0 +1,94 @@
+arazzo: 1.0.1
+info:
+  title: Hedra — Generate an avatar (talking-head) video
+  version: 1.0.0
+  summary: Upload an image and an audio track, submit an avatar video generation, and poll for the result.
+sourceDescriptions:
+- name: hedra
+  url: ../openapi/hedra-web-api-openapi-original.json
+  type: openapi
+workflows:
+- workflowId: generateAvatarVideo
+  summary: Reserve+upload an image and an audio asset, submit an avatar video generation, poll to completion.
+  description: >-
+    Uses Hedra's Character-3 / Avatar model. Uploads a portrait image and a driving audio track,
+    then submits a video generation conditioned on both (start_keyframe_id + audio_id).
+  inputs:
+    type: object
+    required: [api_key, image_name, audio_name, model_slug]
+    properties:
+      api_key: { type: string }
+      image_name: { type: string }
+      audio_name: { type: string }
+      model_slug: { type: string }
+  steps:
+  - stepId: reserveImage
+    operationId: create_asset_public_assets_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    requestBody:
+      contentType: application/json
+      payload:
+        name: $inputs.image_name
+        type: image
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      image_asset_id: $response.body#/id
+  - stepId: uploadImage
+    operationId: upload_asset_public_assets__id__upload_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - { name: id, in: path, value: $steps.reserveImage.outputs.image_asset_id }
+    successCriteria:
+    - condition: $statusCode == 200
+  - stepId: reserveAudio
+    operationId: create_asset_public_assets_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    requestBody:
+      contentType: application/json
+      payload:
+        name: $inputs.audio_name
+        type: audio
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      audio_asset_id: $response.body#/id
+  - stepId: uploadAudio
+    operationId: upload_asset_public_assets__id__upload_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - { name: id, in: path, value: $steps.reserveAudio.outputs.audio_asset_id }
+    successCriteria:
+    - condition: $statusCode == 200
+  - stepId: submitAvatar
+    operationId: generate_asset_public_generations_post
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    requestBody:
+      contentType: application/json
+      payload:
+        type: video
+        model_slug: $inputs.model_slug
+        start_keyframe_id: $steps.reserveImage.outputs.image_asset_id
+        audio_id: $steps.reserveAudio.outputs.audio_asset_id
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      generation_id: $response.body#/id
+  - stepId: pollStatus
+    operationId: get_status_public_generations__generation_id__status_get
+    parameters:
+    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - { name: generation_id, in: path, value: $steps.submitAvatar.outputs.generation_id }
+    successCriteria:
+    - condition: $statusCode == 200
+    - context: $response.body
+      condition: $.status == "complete"
+      type: jsonpath
+    outputs:
+      url: $response.body#/url
+  outputs:
+    generation_id: $steps.submitAvatar.outputs.generation_id
+    url: $steps.pollStatus.outputs.url

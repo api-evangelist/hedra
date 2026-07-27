@@ -1,0 +1,88 @@
+arazzo: 1.0.1
+info:
+  title: Hedra — Generate a video from a start image
+  version: 1.0.0
+  summary: Upload a start keyframe image, submit a video generation, and poll for the result.
+sourceDescriptions:
+- name: hedra
+  url: ../openapi/hedra-web-api-openapi-original.json
+  type: openapi
+workflows:
+- workflowId: generateVideo
+  summary: Reserve and upload an image asset, submit a video generation, poll to completion.
+  inputs:
+    type: object
+    required: [api_key, image_name, text_prompt]
+    properties:
+      api_key: { type: string }
+      image_name: { type: string }
+      text_prompt: { type: string }
+      model_slug: { type: string, default: "" }
+  steps:
+  - stepId: reserveAsset
+    description: Create (reserve) an image asset to upload the start keyframe into.
+    operationId: create_asset_public_assets_post
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    requestBody:
+      contentType: application/json
+      payload:
+        name: $inputs.image_name
+        type: image
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      asset_id: $response.body#/id
+  - stepId: uploadAsset
+    description: Upload the image binary for the reserved asset.
+    operationId: upload_asset_public_assets__id__upload_post
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    - name: id
+      in: path
+      value: $steps.reserveAsset.outputs.asset_id
+    successCriteria:
+    - condition: $statusCode == 200
+  - stepId: submitVideo
+    description: Submit the video generation using the uploaded image as the start keyframe.
+    operationId: generate_asset_public_generations_post
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    requestBody:
+      contentType: application/json
+      payload:
+        type: video
+        model_slug: $inputs.model_slug
+        start_keyframe_id: $steps.reserveAsset.outputs.asset_id
+        generated_video_inputs:
+          text_prompt: $inputs.text_prompt
+    successCriteria:
+    - condition: $statusCode == 200
+    outputs:
+      generation_id: $response.body#/id
+  - stepId: pollStatus
+    description: Poll until the video generation completes.
+    operationId: get_status_public_generations__generation_id__status_get
+    parameters:
+    - name: X-API-Key
+      in: header
+      value: $inputs.api_key
+    - name: generation_id
+      in: path
+      value: $steps.submitVideo.outputs.generation_id
+    successCriteria:
+    - condition: $statusCode == 200
+    - context: $response.body
+      condition: $.status == "complete"
+      type: jsonpath
+    outputs:
+      url: $response.body#/url
+  outputs:
+    generation_id: $steps.submitVideo.outputs.generation_id
+    url: $steps.pollStatus.outputs.url

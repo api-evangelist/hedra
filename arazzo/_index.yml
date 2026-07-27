@@ -1,0 +1,20 @@
+generated: '2026-07-19'
+method: derived
+source: openapi/hedra-web-api-openapi-original.json
+workflows:
+- file: hedra-generate-image.yml
+  workflowId: generateImage
+  title: Generate an image from a text prompt
+  summary: Submit an image generation and poll until the image is ready.
+- file: hedra-generate-video.yml
+  workflowId: generateVideo
+  title: Generate a video from a start image
+  summary: Upload a start keyframe image, submit a video generation, and poll for the result.
+- file: hedra-generate-avatar-video.yml
+  workflowId: generateAvatarVideo
+  title: Generate an avatar (talking-head) video
+  summary: Upload an image and audio, submit an avatar video generation, and poll for the result.
+- file: hedra-generate-audio.yml
+  workflowId: generateAudio
+  title: Generate text-to-speech audio
+  summary: Pick a voice, submit a text-to-speech generation, and poll for the audio.

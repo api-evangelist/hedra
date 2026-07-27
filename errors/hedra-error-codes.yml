@@ -1,0 +1,61 @@
+generated: '2026-07-19'
+method: derived
+source: openapi/hedra-web-api-openapi-original.json
+envelope:
+  description: >-
+    Generation-level failures are reported on the Generation / GenerationStatusResponse object via
+    an `error` (GenerationError) and `error_message` field once status is `error`. The `error.type`
+    is drawn from the ErrorCode enum below (modeled after gRPC status codes). Request validation
+    failures return HTTP 422 with an HTTPValidationError body (ValidationError[] with loc/msg/type).
+  fields:
+    error: "GenerationError object ({ type: ErrorCode, message: string })"
+    error_message: human-readable message
+    status: complete | error | processing | queued | finalizing
+format: custom
+error_codes:
+- code: UNKNOWN
+  meaning: Unclassified / unexpected error.
+  action: Retry with backoff; contact support if persistent.
+- code: INVALID_ARGUMENT
+  meaning: A request argument was malformed or invalid.
+  action: Fix the request payload; do not retry unchanged.
+- code: NOT_FOUND
+  meaning: Referenced resource (asset, generation, model, voice) does not exist.
+  action: Verify the id; do not retry.
+- code: ALREADY_EXISTS
+  meaning: Resource with the supplied id already exists.
+  action: Use a new id or fetch the existing resource.
+- code: ALREADY_IN_PROGRESS
+  meaning: An equivalent operation is already running.
+  action: Poll the existing generation rather than resubmitting.
+- code: UNAUTHORIZED
+  meaning: Missing or invalid X-API-Key.
+  action: Provide a valid API key; do not retry unchanged.
+- code: PERMISSION_DENIED
+  meaning: Authenticated but not permitted for this action/resource.
+  action: Check plan/permissions; do not retry unchanged.
+- code: MISSING_CREDITS
+  meaning: Insufficient account credits to run the generation.
+  action: Purchase credits or upgrade plan, then resubmit.
+- code: MODERATION_FAILED
+  meaning: Input or output failed content moderation.
+  action: Revise the prompt/inputs to comply with the Acceptable Use policy.
+- code: FAILED_PRECONDITION
+  meaning: System state prevents the operation (e.g. required input asset not uploaded).
+  action: Satisfy the precondition (upload inputs) and retry.
+- code: DEADLINE_EXCEEDED
+  meaning: Operation exceeded its time budget.
+  action: Retry with backoff.
+- code: RESOURCE_EXHAUSTED
+  meaning: Rate limit or quota exhausted.
+  action: Back off and retry; request higher limits via enterprise sales.
+- code: UNAVAILABLE
+  meaning: Service or upstream model temporarily unavailable.
+  action: Retry with exponential backoff.
+- code: INTERNAL
+  meaning: Internal server error.
+  action: Retry with backoff; contact support if persistent.
+http_status:
+- status: 422
+  schema: HTTPValidationError
+  description: Request validation error (Unprocessable Entity) for malformed query/body parameters.

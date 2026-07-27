@@ -1,0 +1,34 @@
+generated: '2026-07-19'
+method: searched
+source: https://github.com/hedra-labs
+packages:
+- language: python
+  registry: pypi
+  name: hedra-python
+  url: https://pypi.org/project/hedra-python/
+  repository: https://github.com/hedra-labs/hedra-python
+  install: pip install hedra-python
+  license: Apache-2.0
+  official: true
+  description: The official Python SDK for accessing the Hedra inference & training platform.
+- language: javascript
+  registry: npm
+  name: hedra-node
+  url: https://github.com/hedra-labs/hedra-node
+  repository: https://github.com/hedra-labs/hedra-node
+  install: npm install hedra-node
+  license: Apache-2.0
+  official: true
+  description: The official JavaScript/TypeScript SDK for accessing the Hedra inference & training platform.
+- language: rust
+  registry: github
+  name: hedra-cli
+  url: https://github.com/hedra-labs/hedra-cli
+  repository: https://github.com/hedra-labs/hedra-cli
+  install: git clone https://github.com/hedra-labs/hedra-cli && cargo build --release
+  license: Apache-2.0
+  official: true
+  description: The official Rust CLI for accessing the Hedra inference & training platform. Prebuilt Homebrew/shell/PowerShell installers produced by the release workflow.
+notes: >-
+  A community Node client "hedra" (chetanxpro/hedra-node) and a PyPI package named "hedra"
+  (a load-testing framework by adalundhe) also exist but are NOT first-party and are excluded.

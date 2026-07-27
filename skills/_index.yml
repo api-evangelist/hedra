@@ -1,0 +1,16 @@
+generated: '2026-07-19'
+method: generated
+source: openapi/hedra-web-api-openapi-original.json
+skills:
+- file: hedra-generate-image.md
+  name: Generate an image with Hedra
+  api: openapi/hedra-web-api-openapi-original.json
+  operations: [list_models_public_models_get, generate_asset_public_generations_post, get_status_public_generations__generation_id__status_get]
+- file: hedra-generate-avatar-video.md
+  name: Generate an avatar video with Hedra
+  api: openapi/hedra-web-api-openapi-original.json
+  operations: [create_asset_public_assets_post, upload_asset_public_assets__id__upload_post, generate_asset_public_generations_post, get_status_public_generations__generation_id__status_get]
+- file: hedra-generate-speech.md
+  name: Generate text-to-speech with Hedra
+  api: openapi/hedra-web-api-openapi-original.json
+  operations: [list_voices_public_voices_get, generate_asset_public_generations_post, get_status_public_generations__generation_id__status_get, get_credits_public_billing_credits_get]

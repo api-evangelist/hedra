@@ -1,0 +1,28 @@
+generated: '2026-07-19'
+method: searched
+source: https://www.hedra.com/docs
+versioning:
+  scheme: path-prefix
+  current: /web-app/public
+  spec_version: 0.1.0
+  note: >-
+    The public API is served under the /web-app/public path prefix. The OpenAPI info.version is
+    0.1.0. No dated API version train or version header is documented.
+deprecation:
+  policy_url: null
+  sunset_header: false
+  note: >-
+    No formal deprecation/Sunset (RFC 8594) policy is published. Field-level deprecation exists in
+    the spec (ai_model_id is deprecated in favor of model_slug), but no operations are marked
+    deprecated. No Deprecation pointer emitted (no published policy).
+sla:
+  url: null
+  uptime_target: null
+  note: Configurable SLAs available via enterprise; no public uptime target published.
+status_page: https://status.hedra.com/
+status_components: [Website, App]
+deprecated_operations: []
+deprecated_fields:
+- openapi/hedra-web-api-openapi-original.json#GenerateImageRequest.ai_model_id
+- openapi/hedra-web-api-openapi-original.json#GenerateVideoRequest.ai_model_id
+- openapi/hedra-web-api-openapi-original.json#GeneratedVideoInputs.ai_model_id

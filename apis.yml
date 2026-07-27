@@ -1,22 +1,141 @@
 aid: hedra
 name: Hedra
-description: Hedra is a company surfaced as a portfolio company of a16z and added to the API Evangelist
-  network as a stub for enrichment. This profile is a lead awaiting the enrichment pipeline.
+description: >-
+  Hedra is a generative-media AI lab and creative platform that lets you produce image, video,
+  and audio content through a web studio and a developer API. Its proprietary Character-3 model
+  powers expressive talking-head and character video, and the platform brokers access to leading
+  partner models (Veo, Kling, Grok, Nano Banana Pro, Flux, Sana) behind one credit-based account.
+  The Hedra Web API exposes a small, uniform surface — list models and voices, upload assets,
+  submit generations (image, video, avatar, text-to-speech, voice clone, upscale, video-to-video),
+  poll generation status, and check billing credits — authenticated with an X-API-Key header.
+  Hedra ships first-party Python, Node/TypeScript, and Rust CLI clients. Backed by a16z.
 url: https://raw.githubusercontent.com/api-evangelist/hedra/refs/heads/main/apis.yml
 x-type: company
 x-source: vc-portfolio
 x-backed-by:
 - a16z
-x-tier: stub
-x-tier-reason: portfolio-lead
+x-tier: enriched
+x-tier-reason: has-public-api
+accessModel:
+  pricing: unknown
+  onboarding: self-serve
+  trial: false
+  try_now: false
+  public: false
+  label: Self-serve signup
+  confidence: medium
+  source:
+  - authentication
+  generated: '2026-07-22'
+  method: derived
 specificationVersion: '0.20'
 created: '2026-07-17'
-modified: '2026-07-17'
+modified: '2026-07-19'
+image: https://www.hedra.com/assets/logo/light.svg
 tags:
 - Company
-apis: []
+- Artificial Intelligence
+- Generative AI
+- Video Generation
+- Image Generation
+- Audio Generation
+- Text to Speech
+- Avatars
+- Media
+- Machine Learning
+apis:
+- aid: hedra:hedra-public-api
+  name: Hedra Public API
+  description: Public endpoints are available to API users.
+  humanURL: https://www.hedra.com/docs
+  baseURL: https://api.hedra.com/web-app
+  tags:
+  - Public
+  properties:
+  - type: OpenAPI
+    url: openapi/hedra-public-api-openapi.yml
+  - type: Documentation
+    url: https://www.hedra.com/docs
+  - type: APIReference
+    url: https://www.hedra.com/docs
+  - type: Quickstart
+    url: https://www.hedra.com/docs/pages/developer/getting_started/quickstart
 maintainers:
 - FN: Kin Lane
   email: kin@apievangelist.com
 - FN: APIs.json
   email: info@apis.io
+common:
+- type: DeveloperPortal
+  url: https://www.hedra.com/docs
+- type: Documentation
+  url: https://www.hedra.com/docs
+- type: APIReference
+  url: https://www.hedra.com/docs
+- type: GettingStarted
+  url: https://www.hedra.com/docs/pages/developer/getting_started/quickstart
+- type: Pricing
+  url: https://www.hedra.com/pricing
+- type: SignUp
+  url: https://www.hedra.com/auth/start?flow=signup
+- type: Login
+  url: https://www.hedra.com/auth/start?flow=login
+- type: TermsOfService
+  url: https://www.hedra.com/terms
+- type: PrivacyPolicy
+  url: https://www.hedra.com/privacy
+- type: Support
+  url: https://www.hedra.com/support
+- type: Blog
+  url: https://www.hedra.com/blog
+- type: GitHubOrganization
+  url: https://github.com/hedra-labs
+- type: StatusPage
+  url: https://status.hedra.com/
+- type: AgenticAccess
+  url: agentic-access/hedra-agentic-access.yml
+- type: Authentication
+  url: authentication/hedra-authentication.yml
+- type: Packages
+  url: packages/hedra-packages.yml
+- type: SDKs
+  url: packages/hedra-packages.yml
+- type: CLI
+  url: cli/hedra-cli.yml
+- type: MCPServer
+  url: mcp/hedra-mcp.yml
+- type: LLMsTxt
+  url: llms/hedra-llms.txt
+- type: Conformance
+  url: conformance/hedra-conformance.yml
+- type: ErrorCatalog
+  url: errors/hedra-error-codes.yml
+- type: Conventions
+  url: conventions/hedra-conventions.yml
+- type: DataModel
+  url: data-model/hedra-data-model.yml
+- type: Lifecycle
+  url: lifecycle/hedra-lifecycle.yml
+- type: DomainSecurity
+  url: security/hedra-domain-security.yml
+- type: Webhooks
+  url: asyncapi/hedra-webhooks.yml
+- type: AgentSkill
+  url: skills/_index.yml
+- type: Arazzo
+  name: Generate an image
+  url: arazzo/hedra-generate-image.yml
+- type: Arazzo
+  name: Generate a video from an image
+  url: arazzo/hedra-generate-video.yml
+- type: Arazzo
+  name: Generate an avatar video
+  url: arazzo/hedra-generate-avatar-video.yml
+- type: Arazzo
+  name: Generate text-to-speech audio
+  url: arazzo/hedra-generate-audio.yml
+x-enrichment:
+  date: '2026-07-19'
+  status: backfilled
+  pass: local-v1
+  note: backfilled from .gitignore signal + verified work evidence

@@ -1,0 +1,53 @@
+generated: '2026-07-19'
+method: derived
+source: openapi/hedra-web-api-openapi-original.json
+entities:
+- name: Asset
+  description: An uploaded or generated media object (image, audio, video, 3D).
+  id_field: id
+  key_fields: [id, type, name, created_at, asset, thumbnail_url]
+  types: [image, audio, video, 3d]
+- name: Generation
+  description: An asynchronous generation job that produces an Asset.
+  id_field: id
+  key_fields: [id, type, input, status, progress, created_at, credit_cost, asset, error, batch_generation_id]
+  statuses: [queued, processing, finalizing, complete, error]
+- name: AIModel
+  description: A generation model (Hedra Character-3/Avatar/Omnia or partner models like Veo, Kling, Grok, Flux, Sana).
+  id_field: slug
+  key_fields: [slug, name, type, price_details, resolutions, durations, inputs]
+- name: Voice
+  description: A voice usable for text-to-speech or voice-clone.
+  id_field: external_id
+  key_fields: [type, external_id, labels, preview_url, source]
+- name: CreditBalance
+  description: The account/workspace billing credit balance.
+  key_fields: [WorkspaceCreditUsage]
+relationships:
+- from: Generation
+  to: Asset
+  type: has_one
+  via: asset
+  note: A completed generation produces one (or batch of) asset(s); asset_id on GenerationStatusResponse.
+- from: Generation
+  to: AIModel
+  type: belongs_to
+  via: model_slug
+  note: Each generation selects a model by model_slug (ai_model_id deprecated).
+- from: Generation
+  to: Asset
+  type: has_many
+  via: start_keyframe_id / end_keyframe_id / audio_id / video_id / reference_image_ids / reference_video_ids / reference_audio_ids
+  note: Video/avatar generations reference input assets by id.
+- from: Generation
+  to: Voice
+  type: belongs_to
+  via: voice_id
+  note: Text-to-speech generations select a voice by voice_id.
+- from: Generation
+  to: Generation
+  type: has_many
+  via: batch_generation_id
+  note: Batch generations (batch_size 1-8) are linked by a shared batch_generation_id.
+id_prefixes:
+  note: Ids are opaque; models are addressed by stable `slug`, generations/assets by server-issued `id` (UUID-like). Clients may pre-reserve ids via reserved_asset_id / generation_id.
