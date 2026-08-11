@@ -66,6 +66,8 @@ maintainers:
 - FN: APIs.json
   email: info@apis.io
 common:
+- type: Overlay
+  url: overlays/hedra-web-api-overlay.yaml
 - type: DeveloperPortal
   url: https://www.hedra.com/docs
 - type: Documentation
