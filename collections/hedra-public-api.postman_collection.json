@@ -1,0 +1,1504 @@
+{
+  "item": [
+    {
+      "id": "299895a9-5971-4bb0-b0fd-eb9294cf6384",
+      "name": "Public",
+      "description": {
+        "content": "Public endpoints are available to API users.",
+        "type": "text/plain"
+      },
+      "item": [
+        {
+          "id": "9d02def9-330d-4f82-843a-9869fc04b7d6",
+          "name": "List Models",
+          "request": {
+            "name": "List Models",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "models"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": false,
+                  "key": "types",
+                  "value": "<string>"
+                },
+                {
+                  "disabled": false,
+                  "key": "types",
+                  "value": "<string>"
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "e7ba921c-b1ec-4543-a308-da3f6346560e",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "models"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "types",
+                      "value": "audio_isolation"
+                    },
+                    {
+                      "key": "types",
+                      "value": "agent_response"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "null",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "eab31da9-f5e7-4935-8ebe-d42ac4c3bbfc",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "models"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "types",
+                      "value": "audio_isolation"
+                    },
+                    {
+                      "key": "types",
+                      "value": "agent_response"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "a8a6939a-7736-4516-8c21-dfef4c1a0d7a",
+          "name": "List Voices",
+          "request": {
+            "name": "List Voices",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "voices"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "35cc8c8a-0b90-4231-bf53-1d67f8d5ad65",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "voices"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"9a111beb-e538-8ef1-aae3-e5aab0c451b5\",\n    \"type\": \"audio\",\n    \"name\": \"string\",\n    \"created_at\": \"string\",\n    \"asset\": {\n      \"width\": 4261,\n      \"height\": 7909,\n      \"url\": \"string\",\n      \"type\": \"uploaded_image\"\n    },\n    \"thumbnail_url\": \"string\",\n    \"description\": \"string\",\n    \"is_favorite\": false,\n    \"recent\": false,\n    \"favorited_at\": \"string\"\n  },\n  {\n    \"id\": \"a6a0d28d-d152-f43c-bb68-d440f3a3b550\",\n    \"type\": \"text\",\n    \"name\": \"string\",\n    \"created_at\": \"string\",\n    \"asset\": {\n      \"width\": 6667,\n      \"height\": 4753,\n      \"url\": \"string\",\n      \"type\": \"uploaded_image\"\n    },\n    \"thumbnail_url\": \"string\",\n    \"description\": \"string\",\n    \"is_favorite\": false,\n    \"recent\": false,\n    \"favorited_at\": \"string\"\n  }\n]",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "0787a2ef-8211-4488-9b34-40a68d41824e",
+          "name": "List Assets",
+          "request": {
+            "name": "List Assets",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "assets"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": false,
+                  "key": "type",
+                  "value": "<string>",
+                  "description": "(Required) "
+                },
+                {
+                  "disabled": false,
+                  "key": "ids",
+                  "value": "<string>"
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "cecdc942-9aa5-4a02-af75-c6484b7a390a",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "video"
+                    },
+                    {
+                      "key": "ids",
+                      "value": "<string>"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"bc7ebcc7-e97a-b045-0085-0dcdbcb47fdd\",\n    \"type\": \"image\",\n    \"name\": \"string\",\n    \"created_at\": \"string\",\n    \"asset\": {\n      \"width\": 5125,\n      \"height\": 2176,\n      \"url\": \"string\",\n      \"type\": \"uploaded_image\"\n    },\n    \"thumbnail_url\": \"string\",\n    \"description\": \"string\",\n    \"is_favorite\": false,\n    \"recent\": false,\n    \"favorited_at\": \"string\"\n  },\n  {\n    \"id\": \"3253839b-0ec3-d194-ced0-6591e69a2e15\",\n    \"type\": \"three_d\",\n    \"name\": \"string\",\n    \"created_at\": \"string\",\n    \"asset\": {\n      \"width\": 404,\n      \"height\": 3498,\n      \"url\": \"string\",\n      \"type\": \"uploaded_image\"\n    },\n    \"thumbnail_url\": \"string\",\n    \"description\": \"string\",\n    \"is_favorite\": false,\n    \"recent\": false,\n    \"favorited_at\": \"string\"\n  }\n]",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "516901af-7711-4c4e-95c0-ffda6745357e",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "video"
+                    },
+                    {
+                      "key": "ids",
+                      "value": "<string>"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "6de58d5e-ceb3-4078-ba8a-9bc6890457aa",
+          "name": "Create Asset",
+          "request": {
+            "name": "Create Asset",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "assets"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"<string>\",\n  \"type\": \"<string>\",\n  \"workspace_id\": \"<string>\",\n  \"reserved_asset_id\": \"<uuid>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "8d55faba-096c-40a0-93a1-581fe8d8ae28",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"<string>\",\n  \"type\": \"audio\",\n  \"workspace_id\": \"<string>\",\n  \"reserved_asset_id\": \"<uuid>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"name\": \"string\",\n  \"type\": \"three_d\",\n  \"id\": \"a3788012-a89f-1224-4922-f2bf63e91fd5\",\n  \"workspace_id\": \"string\",\n  \"reserved_asset_id\": \"4399819e-ab56-5a59-e8e9-106fe54e1818\",\n  \"upload_url\": \"http://QWKrySHcwKsKXzInDmymd.ptmP54GGkkXFXXImTh\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "352f89f8-62da-4e1e-aaa3-3519d4a830c6",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"<string>\",\n  \"type\": \"audio\",\n  \"workspace_id\": \"<string>\",\n  \"reserved_asset_id\": \"<uuid>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "a3c31bb3-babe-4286-9177-587e3817ff04",
+          "name": "Upload Asset",
+          "request": {
+            "name": "Upload Asset",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "assets",
+                ":id",
+                "upload"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "<uuid>",
+                  "key": "id",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "value": "<string>",
+                  "type": "text",
+                  "description": "(Required) "
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "64cea81f-67c6-499d-940b-f35944a3652a",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets",
+                    ":id",
+                    "upload"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<uuid>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "description": {
+                        "content": "(Required) ",
+                        "type": "text/plain"
+                      },
+                      "key": "file",
+                      "value": "<string>",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"c82d50a2-d59e-2aa8-0f2a-71771890ca32\",\n  \"type\": \"audio\",\n  \"name\": \"string\",\n  \"created_at\": \"string\",\n  \"asset\": {\n    \"width\": 6771,\n    \"height\": 5094,\n    \"url\": \"string\",\n    \"type\": \"uploaded_image\"\n  },\n  \"thumbnail_url\": \"string\",\n  \"description\": \"string\",\n  \"is_favorite\": false,\n  \"recent\": false,\n  \"favorited_at\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "40226f7a-59a9-47ec-ac45-5398431f66ea",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "assets",
+                    ":id",
+                    "upload"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<uuid>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "description": {
+                        "content": "(Required) ",
+                        "type": "text/plain"
+                      },
+                      "key": "file",
+                      "value": "<string>",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "01be3104-1740-4a4d-b99e-c201e43d44a1",
+          "name": "List ",
+          "request": {
+            "name": "List ",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "generations"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "disabled": false,
+                  "key": "type",
+                  "value": "<string>"
+                },
+                {
+                  "disabled": false,
+                  "key": "created_before",
+                  "value": "<dateTime>"
+                },
+                {
+                  "disabled": false,
+                  "key": "created_after",
+                  "value": "<dateTime>"
+                },
+                {
+                  "disabled": false,
+                  "key": "prompt_query",
+                  "value": "<string>"
+                },
+                {
+                  "disabled": false,
+                  "key": "agent_thread_id",
+                  "value": "<uuid>"
+                },
+                {
+                  "disabled": false,
+                  "key": "ids",
+                  "value": "<string>"
+                },
+                {
+                  "disabled": false,
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "disabled": false,
+                  "key": "offset",
+                  "value": "0"
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "3b33a62e-01c7-4a8d-8a5c-565a47bce5e4",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "video"
+                    },
+                    {
+                      "key": "created_before",
+                      "value": "<dateTime>"
+                    },
+                    {
+                      "key": "created_after",
+                      "value": "<dateTime>"
+                    },
+                    {
+                      "key": "prompt_query",
+                      "value": "<string>"
+                    },
+                    {
+                      "key": "agent_thread_id",
+                      "value": "<uuid>"
+                    },
+                    {
+                      "key": "ids",
+                      "value": "<string>"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "100"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"page_info\": {\n    \"limit\": 5929,\n    \"offset\": 7800\n  },\n  \"data\": [\n    {\n      \"id\": \"4f08365e-dba8-4f5f-1971-029a5306ceb2\",\n      \"type\": \"rich_text\",\n      \"input\": {\n        \"generated_video_inputs\": {\n          \"text_prompt\": \"string\",\n          \"ai_model_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_slug\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"resolution\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"aspect_ratio\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"duration_ms\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"bounding_box_target\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"character_orientation\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"enhance_prompt\": false,\n          \"multi_prompt\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"shot_type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"workspace_id\": \"string\",\n        \"agent_thread_id\": \"75940d7f-7426-ede3-a0b0-bfd13a20ff27\",\n        \"generation_id\": \"223c708f-860b-c413-c88e-2fd9ccad3691\",\n        \"generation_ids\": [\n          \"33095f37-02f3-b9fd-1d43-29414be7143e\",\n          \"000ef642-60f7-ec09-773d-931b52df7521\"\n        ],\n        \"reserved_asset_id\": \"5a8b1e49-369c-519d-5bdb-ed4497ffc975\",\n        \"reserved_asset_ids\": [\n          \"a4ba3f9b-fb99-b6bb-e8a2-815da1c3afe0\",\n          \"7dd8f677-f7ff-484a-8079-0e5136066350\"\n        ],\n        \"type\": \"video\",\n        \"name\": \"string\",\n        \"ai_model_id\": \"69058f84-f1dc-4ba2-1c4e-80f8e52351d1\",\n        \"model_slug\": \"string\",\n        \"start_keyframe_id\": \"d944a20a-3d2b-d4de-6a38-9a20aee550e7\",\n        \"start_keyframe_url\": \"https://IRDyuDqlOFgDTOdjrqOB.upcgINg3-\",\n        \"end_keyframe_id\": \"851649fa-4822-0e72-204c-7d1c72be19da\",\n        \"end_keyframe_url\": \"https://qfeRUrLqPpMjntmx.valKsBo85YwdYu2m+BR358U1Essm0-4uIArc\",\n        \"audio_id\": \"060dc47a-e0a9-1f74-1d86-c35e0c074a88\",\n        \"audio_generation\": {\n          \"voice_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"text\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"workspace_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"agent_thread_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"generation_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"generation_ids\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"reserved_asset_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"reserved_asset_ids\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"name\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_slug\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"stability\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"speed\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"language\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"audio_start_ms\": 6575,\n        \"reference_audio_ids\": [\n          \"eb455f45-eeba-1468-1c3f-78c58010401a\",\n          \"ecf23174-eb6e-c9a8-91a7-ab1be8ae226c\"\n        ],\n        \"reference_image_ids\": [\n          \"14213ce2-e0ea-60dd-5deb-d67f78c679c8\",\n          \"09140722-d4ce-04f7-6539-63e8567d56f8\"\n        ],\n        \"reference_video_ids\": [\n          \"4a296a4b-300e-4ac6-8666-3c4df695b9da\",\n          \"7e4450e7-7b1a-4d1b-d2ee-cd4e740c494c\"\n        ],\n        \"video_id\": \"76dd9aaf-4d71-3a9b-2ae0-0b0a52994efc\",\n        \"batch_size\": 1\n      },\n      \"status\": \"processing\",\n      \"progress\": 5775.2949975471865,\n      \"created_at\": \"string\",\n      \"eta_sec\": 8531,\n      \"estimated_completion_at\": \"string\",\n      \"credit_cost\": 2154,\n      \"batch_generation_id\": \"string\",\n      \"asset\": {\n        \"id\": \"7f9aa81e-7e3a-8924-ba02-ed9e19eab1d1\",\n        \"type\": \"audio\",\n        \"name\": \"string\",\n        \"created_at\": \"string\",\n        \"asset\": {\n          \"width\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"height\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"url\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"thumbnail_url\": \"string\",\n        \"description\": \"string\",\n        \"is_favorite\": false,\n        \"recent\": false,\n        \"favorited_at\": \"string\"\n      },\n      \"audio_start_ms\": 9911,\n      \"error\": {\n        \"type\": \"RESOURCE_EXHAUSTED\",\n        \"message\": \"string\"\n      },\n      \"error_message\": \"string\"\n    },\n    {\n      \"id\": \"441767d7-56c2-edaf-98a4-608662c9aae9\",\n      \"type\": \"image\",\n      \"input\": {\n        \"generated_video_inputs\": {\n          \"text_prompt\": \"string\",\n          \"ai_model_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_slug\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"resolution\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"aspect_ratio\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"duration_ms\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"bounding_box_target\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"character_orientation\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"enhance_prompt\": false,\n          \"multi_prompt\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"shot_type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"workspace_id\": \"string\",\n        \"agent_thread_id\": \"9837b1e3-8f7d-a35b-9116-497a4ce3bf70\",\n        \"generation_id\": \"4eb24f67-605e-9d06-c85d-62ce24fb28a2\",\n        \"generation_ids\": [\n          \"ac06554b-dac3-b818-3d97-6dd04d2bd499\",\n          \"a62116d5-4c85-0364-bbaf-250671dd69e7\"\n        ],\n        \"reserved_asset_id\": \"8efae403-7d1c-8b6e-2e2b-cd8b768045da\",\n        \"reserved_asset_ids\": [\n          \"37b93771-604b-a27b-7d2f-e8c4bbc641aa\",\n          \"a5811ec1-468b-d903-b8ed-80fd1e37c1c1\"\n        ],\n        \"type\": \"video\",\n        \"name\": \"string\",\n        \"ai_model_id\": \"200b0c0d-0e47-36ee-47ea-8c7f63aeb491\",\n        \"model_slug\": \"string\",\n        \"start_keyframe_id\": \"86ada3b4-6c88-1b05-c659-ee9812d4a7d5\",\n        \"start_keyframe_url\": \"https://EuGtkLbCJpSfNoEcJLuUxZDG.khmsJ-fW7aZODSAcQNLe63c0FxfMaPNOxdRWgmK-cRQ1T7\",\n        \"end_keyframe_id\": \"6be49418-b07a-c15a-eab5-d61add8f5437\",\n        \"end_keyframe_url\": \"http://sDeSlIegMSwKeZnIjITaZqlxw.hjkUErya7u48y-Y8mLEXkQEjXdlmrQ7AuXbd,l\",\n        \"audio_id\": \"c882cb37-cf7e-812e-d474-721c28aa4262\",\n        \"audio_generation\": {\n          \"voice_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"text\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"workspace_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"agent_thread_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"generation_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"generation_ids\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"reserved_asset_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"reserved_asset_ids\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"name\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_id\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"model_slug\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"stability\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"speed\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"language\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"audio_start_ms\": 8505,\n        \"reference_audio_ids\": [\n          \"41791577-41e4-5eaf-870d-bf595c76a42d\",\n          \"7a625b8c-1827-1d69-8ed7-0cd9d4c7e58c\"\n        ],\n        \"reference_image_ids\": [\n          \"93a603f9-3181-827a-23bd-e901de2c8d94\",\n          \"807cfdb5-b787-dfc1-c66b-6aa504389839\"\n        ],\n        \"reference_video_ids\": [\n          \"b67aedfb-5557-d3a6-8a27-edcdd0324c48\",\n          \"14168349-323b-b485-8cb6-5c94de76c97b\"\n        ],\n        \"video_id\": \"2a5e7977-1abc-3d9a-ee6b-bdf5b16424bc\",\n        \"batch_size\": 1\n      },\n      \"status\": \"queued\",\n      \"progress\": 71.06054403112294,\n      \"created_at\": \"string\",\n      \"eta_sec\": 2850,\n      \"estimated_completion_at\": \"string\",\n      \"credit_cost\": 7082,\n      \"batch_generation_id\": \"string\",\n      \"asset\": {\n        \"id\": \"d8449cc0-046e-5051-bda4-f2b44f52c6f0\",\n        \"type\": \"voice\",\n        \"name\": \"string\",\n        \"created_at\": \"string\",\n        \"asset\": {\n          \"width\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"height\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"url\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          },\n          \"type\": {\n            \"value\": \"<Error: Too many levels of nesting to fake this schema>\"\n          }\n        },\n        \"thumbnail_url\": \"string\",\n        \"description\": \"string\",\n        \"is_favorite\": false,\n        \"recent\": false,\n        \"favorited_at\": \"string\"\n      },\n      \"audio_start_ms\": 6640,\n      \"error\": {\n        \"type\": \"MISSING_CREDITS\",\n        \"message\": \"string\"\n      },\n      \"error_message\": \"string\"\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "85229345-f17d-49ab-8c16-d1aaeb0e838e",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "video"
+                    },
+                    {
+                      "key": "created_before",
+                      "value": "<dateTime>"
+                    },
+                    {
+                      "key": "created_after",
+                      "value": "<dateTime>"
+                    },
+                    {
+                      "key": "prompt_query",
+                      "value": "<string>"
+                    },
+                    {
+                      "key": "agent_thread_id",
+                      "value": "<uuid>"
+                    },
+                    {
+                      "key": "ids",
+                      "value": "<string>"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "100"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "b7caec6f-6219-41b2-b63b-f0562d910570",
+          "name": "Generate Asset",
+          "request": {
+            "name": "Generate Asset",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "generations"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"generated_video_inputs\": {\n    \"text_prompt\": \"<string>\",\n    \"ai_model_id\": \"<uuid>\",\n    \"model_slug\": \"<string>\",\n    \"resolution\": \"<string>\",\n    \"aspect_ratio\": \"<string>\",\n    \"duration_ms\": \"<integer>\",\n    \"bounding_box_target\": \"<array>\",\n    \"character_orientation\": \"<string>\",\n    \"enhance_prompt\": false,\n    \"multi_prompt\": [\n      {\n        \"prompt\": \"<string>\",\n        \"duration_ms\": \"<integer>\"\n      },\n      {\n        \"prompt\": \"<string>\",\n        \"duration_ms\": \"<integer>\"\n      }\n    ],\n    \"shot_type\": \"<string>\"\n  },\n  \"workspace_id\": \"<string>\",\n  \"agent_thread_id\": \"<uuid>\",\n  \"generation_id\": \"<uuid>\",\n  \"generation_ids\": [\n    \"<uuid>\",\n    \"<uuid>\"\n  ],\n  \"reserved_asset_id\": \"<uuid>\",\n  \"reserved_asset_ids\": [\n    \"<uuid>\",\n    \"<uuid>\"\n  ],\n  \"type\": \"video\",\n  \"name\": \"<string>\",\n  \"ai_model_id\": \"<uuid>\",\n  \"model_slug\": \"<string>\",\n  \"start_keyframe_id\": \"<uuid>\",\n  \"start_keyframe_url\": \"<uri>\",\n  \"end_keyframe_id\": \"<uuid>\",\n  \"end_keyframe_url\": \"<uri>\",\n  \"audio_id\": \"<uuid>\",\n  \"audio_generation\": {\n    \"voice_id\": \"<uuid>\",\n    \"text\": \"<string>\",\n    \"workspace_id\": \"<string>\",\n    \"agent_thread_id\": \"<uuid>\",\n    \"generation_id\": \"<uuid>\",\n    \"generation_ids\": [\n      \"<uuid>\",\n      \"<uuid>\"\n    ],\n    \"reserved_asset_id\": \"<uuid>\",\n    \"reserved_asset_ids\": [\n      \"<uuid>\",\n      \"<uuid>\"\n    ],\n    \"type\": \"text_to_speech\",\n    \"name\": \"<string>\",\n    \"model_id\": \"<uuid>\",\n    \"model_slug\": \"<string>\",\n    \"stability\": 1,\n    \"speed\": 1,\n    \"language\": \"auto\"\n  },\n  \"audio_start_ms\": \"<integer>\",\n  \"reference_audio_ids\": [\n    \"<uuid>\",\n    \"<uuid>\"\n  ],\n  \"reference_image_ids\": [\n    \"<uuid>\",\n    \"<uuid>\"\n  ],\n  \"reference_video_ids\": [\n    \"<uuid>\",\n    \"<uuid>\"\n  ],\n  \"video_id\": \"<uuid>\",\n  \"batch_size\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "455c4ffe-a429-41ff-9f70-60efd5ffc3f3",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "null",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "null",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "096802b1-22d3-4d1f-9600-4132cd9fbe15",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "null",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "f6613a15-321d-43c7-80f0-44fc885117d4",
+          "name": "Get Status",
+          "request": {
+            "name": "Get Status",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "generations",
+                ":generation_id",
+                "status"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "<uuid>",
+                  "key": "generation_id",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "2c6f896d-f61e-4eea-8703-55558bcdf650",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations",
+                    ":generation_id",
+                    "status"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<uuid>",
+                      "key": "generation_id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"661b1497-7651-3dc0-d667-97d8e9b24d82\",\n  \"asset_id\": \"0d6fbea6-509b-ee06-1e1a-a6b392f2d087\",\n  \"type\": \"audio\",\n  \"status\": \"finalizing\",\n  \"progress\": 8695.486128072087,\n  \"created_at\": \"string\",\n  \"error\": {\n    \"type\": \"INTERNAL\",\n    \"message\": \"string\"\n  },\n  \"error_message\": \"string\",\n  \"url\": \"string\",\n  \"download_url\": \"string\",\n  \"streaming_url\": \"string\",\n  \"workspace_id\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "9daf1bbf-3c2f-4313-b0d1-c9978bb0267e",
+              "name": "Validation Error",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "generations",
+                    ":generation_id",
+                    "status"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<uuid>",
+                      "key": "generation_id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+              "code": 422,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    },\n    {\n      \"loc\": [\n        \"string\",\n        \"string\"\n      ],\n      \"msg\": \"string\",\n      \"type\": \"string\",\n      \"input\": {},\n      \"ctx\": {}\n    }\n  ]\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "20183078-1d43-457a-80a1-9cabb27df5de",
+          "name": "Get Credits",
+          "request": {
+            "name": "Get Credits",
+            "description": {},
+            "url": {
+              "path": [
+                "public",
+                "billing",
+                "credits"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-Key"
+                },
+                {
+                  "key": "value",
+                  "value": "{{apiKey}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "id": "b892b709-cea1-44c8-b37a-d1b3c0b3ed0a",
+              "name": "Successful Response",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "public",
+                    "billing",
+                    "credits"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: apikey",
+                      "type": "text/plain"
+                    },
+                    "key": "X-API-Key",
+                    "value": "<API Key>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "GET",
+                "body": {}
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"remaining\": 9234,\n  \"expiring\": 4130,\n  \"used\": 7634,\n  \"workspace_credits\": {\n    \"key_0\": 3299,\n    \"key_1\": 5687\n  },\n  \"workspace_credit_pool\": {\n    \"key_0\": {\n      \"used\": 783,\n      \"allocated\": 4490,\n      \"available\": 4025,\n      \"api_usd_micros\": 4929,\n      \"api_credits\": 6174,\n      \"api_consumed_usd_micros\": 8933\n    }\n  }\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        }
+      ],
+      "event": []
+    }
+  ],
+  "event": [],
+  "variable": [
+    {
+      "type": "string",
+      "value": "/web-app",
+      "key": "baseUrl"
+    }
+  ],
+  "info": {
+    "_postman_id": "e8b4e9e7-3942-4315-bc56-d69e456d16fe",
+    "name": "Hedra Web Public API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": {
+      "content": "Public endpoints are available to API users.",
+      "type": "text/plain"
+    }
+  }
+}

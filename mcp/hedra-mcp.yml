@@ -2,11 +2,9 @@ generated: '2026-07-19'
 method: derived
 status: candidate
 source: openapi/hedra-web-api-openapi-original.json
-note: >-
-  No official first-party hosted/remote MCP server was found for Hedra as of this pass
-  (no @modelcontextprotocol package, no mcp entry in the docs or hedra-labs GitHub org).
-  The tool list below is DERIVED from the Hedra Web API OpenAPI operations as a candidate
-  surface for an MCP server; it is not published by Hedra.
+note: No official first-party hosted/remote MCP server was found for Hedra as of this pass (no @modelcontextprotocol
+  package, no mcp entry in the docs or hedra-labs GitHub org). The tool list below is DERIVED from the
+  Hedra Web API OpenAPI operations as a candidate surface for an MCP server; it is not published by Hedra.
 server:
   name: hedra
   transport: http
@@ -40,3 +38,9 @@ tools:
 - name: get_credits
   description: Read the account's billing credit balance.
   source_operation: openapi/hedra-web-api-openapi-original.json#get_credits_public_billing_credits_get
+deployment:
+  mode: none
+  verified: derived
+  tools: 9
+  checked: '2026-08-12'
+  source: catalog MCP census
