@@ -89,6 +89,9 @@ maintainers:
 - FN: APIs.json
   email: info@apis.io
 common:
+- type: CapabilityMap
+  url: capabilities/hedra-capability-edges.yml
+  name: Hedra Business Capability Map
 - type: Overlay
   url: overlays/hedra-web-api-overlay.yaml
 - type: DeveloperPortal
