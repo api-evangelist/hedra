@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   summary: Upload a start keyframe image, submit a video generation, and poll for the result.
 sourceDescriptions:
-- name: hedra
-  url: ../openapi/hedra-web-api-openapi-original.json
+- name: publicApi
+  url: ../openapi/hedra-public-api-openapi.yml
   type: openapi
 workflows:
 - workflowId: generateVideo
@@ -14,10 +14,10 @@ workflows:
     type: object
     required: [api_key, image_name, text_prompt]
     properties:
-      api_key: { type: string }
-      image_name: { type: string }
-      text_prompt: { type: string }
-      model_slug: { type: string, default: "" }
+      api_key: {type: string}
+      image_name: {type: string}
+      text_prompt: {type: string}
+      model_slug: {type: string, default: ""}
   steps:
   - stepId: reserveAsset
     description: Create (reserve) an image asset to upload the start keyframe into.

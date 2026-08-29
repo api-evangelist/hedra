@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   summary: Submit an image generation and poll until the image is ready.
 sourceDescriptions:
-- name: hedra
-  url: ../openapi/hedra-web-api-openapi-original.json
+- name: publicApi
+  url: ../openapi/hedra-public-api-openapi.yml
   type: openapi
 workflows:
 - workflowId: generateImage

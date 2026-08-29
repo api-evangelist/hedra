@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   summary: Pick a voice, submit a text-to-speech generation, and poll for the audio.
 sourceDescriptions:
-- name: hedra
-  url: ../openapi/hedra-web-api-openapi-original.json
+- name: publicApi
+  url: ../openapi/hedra-public-api-openapi.yml
   type: openapi
 workflows:
 - workflowId: generateAudio
@@ -14,23 +14,23 @@ workflows:
     type: object
     required: [api_key, voice_id, text]
     properties:
-      api_key: { type: string }
-      voice_id: { type: string }
-      text: { type: string }
-      model_slug: { type: string, default: "" }
+      api_key: {type: string}
+      voice_id: {type: string}
+      text: {type: string}
+      model_slug: {type: string, default: ""}
   steps:
   - stepId: listVoices
     description: List available voices (optional discovery step).
     operationId: list_voices_public_voices_get
     parameters:
-    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - {name: X-API-Key, in: header, value: $inputs.api_key}
     successCriteria:
     - condition: $statusCode == 200
   - stepId: submitTTS
     description: Submit the text-to-speech generation.
     operationId: generate_asset_public_generations_post
     parameters:
-    - { name: X-API-Key, in: header, value: $inputs.api_key }
+    - {name: X-API-Key, in: header, value: $inputs.api_key}
     requestBody:
       contentType: application/json
       payload:
@@ -46,8 +46,8 @@ workflows:
     description: Poll until the audio generation completes.
     operationId: get_status_public_generations__generation_id__status_get
     parameters:
-    - { name: X-API-Key, in: header, value: $inputs.api_key }
-    - { name: generation_id, in: path, value: $steps.submitTTS.outputs.generation_id }
+    - {name: X-API-Key, in: header, value: $inputs.api_key}
+    - {name: generation_id, in: path, value: $steps.submitTTS.outputs.generation_id}
     successCriteria:
     - condition: $statusCode == 200
     - context: $response.body
