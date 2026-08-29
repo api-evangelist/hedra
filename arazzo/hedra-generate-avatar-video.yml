@@ -3,6 +3,17 @@ info:
   title: Hedra — Generate an avatar (talking-head) video
   version: 1.0.0
   summary: Upload an image and an audio track, submit an avatar video generation, and poll for the result.
+  x-realizes-capability-ids:
+  - BC-3700
+  x-capability-derivation:
+    method: 'deterministic join: sourceDescriptions -> per-tag OpenAPI -> tag/capability edge. No classification at this step.'
+    min_confidence: 0.7
+    sources:
+    - capability_id: BC-3700
+      capability_name: Content Origination & Production Management
+      spec: hedra-public-api-openapi.yml
+      confidence: 0.7
+    model: Turbo EA Capabilities by Vincent Verdet — Turbo EA, https://github.com/vincentmakes/turbo-ea-capabilities, CC BY 4.0
 sourceDescriptions:
 - name: publicApi
   url: ../openapi/hedra-public-api-openapi.yml
