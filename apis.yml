@@ -50,12 +50,12 @@ tags:
 - Artificial Intelligence
 - Generative AI
 - Video Generation
-- Image-Generation
+- Image Generation
 - Audio Generation
 - Text-to-Speech
 - Avatars
 - Media
-- Machine-Learning
+- Machine Learning
 tags_raw:
 - Company
 - Artificial Intelligence
@@ -67,6 +67,8 @@ tags_raw:
 - Avatars
 - Media
 - Machine Learning
+- Image-Generation
+- Machine-Learning
 apis:
 - aid: hedra:hedra-public-api
   name: Hedra Public API
