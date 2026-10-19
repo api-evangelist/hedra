@@ -1,20 +1,24 @@
 {
   "provider": "hedra",
   "sources": [
-    "_original/hedra-web-api-openapi-original.json"
+    "_original/hedra-openapi.json"
   ],
   "outputs": [
-    "hedra-public-api-openapi.yml"
+    "hedra-access-api-openapi.yml",
+    "hedra-billing-api-openapi.yml",
+    "hedra-jobs-api-openapi.yml",
+    "hedra-log-drains-api-openapi.yml",
+    "hedra-models-api-openapi.yml",
+    "hedra-run-a-model-api-openapi.yml",
+    "hedra-webhooks-api-openapi.yml"
   ],
   "archived": [],
   "errors": [],
   "warnings": [],
   "notes": [
     "sourced from openapi/_original/ (1 archived document(s)); previously refined output at the top level was skipped rather than re-split",
-    "hedra-web-api-openapi-original.json: upgraded openapi 3.1.0 -> OpenAPI 3.2.0",
-    "apis.yml register: already-registered"
+    "hedra-openapi.json: upgraded openapi 3.1.0 -> OpenAPI 3.2.0",
+    "apis.yml register: written (+7 apis, 7 total)"
   ],
-  "skipped": [
-    "hedra-public-api-openapi.yml: previously refined output, superseded by openapi/_original/"
-  ]
+  "skipped": []
 }

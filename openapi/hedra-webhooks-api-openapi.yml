@@ -1,0 +1,2178 @@
+openapi: 3.2.0
+info:
+  title: Hedra API v3 Webhooks API
+  description: 'Generate images, video, and audio with over 100 models through one API. Fund your wallet, then every model runs through the same three requests: submit a job, poll it, download the output. Browse the model catalog to pick one.
+
+
+    **Authenticate** every request with your API key — create one in the developer console: `Authorization: Key :`.
+
+
+    **Fund the API wallet** before your first call. It is prepaid and held in US dollars, it is separate from your Hedra Studio balance, and a workspace starts with **$0.00** in it; nothing you buy or hold in Studio moves money into it. Until it is funded, every generation is refused with `402 INSUFFICIENT_BALANCE`; uploading inputs with `POST /files` is free and works on an empty wallet, so you can stage a request and only meet the gate at submit. Add funds in the developer console, and read the wallet any time with `GET /balance`.
+
+
+    **Quickstart** — submit a job, poll it, then read the output URL:
+
+
+    ```bash
+
+    # 1. Submit — capture the job id from the 202 ack
+
+    JOB_ID=$(curl -sS -X POST https://api.hedra.com/v3/models/gpt-image-2 \
+
+    -H "Authorization: Key $HEDRA_KEY" \
+
+    -H "Content-Type: application/json" \
+
+    -d ''{"input": {"prompt": "a space cat", "quality": "medium", "aspect_ratio": "1:1", "resolution": "1K"}}'' | jq -r .job_id)
+
+
+    # 2. Poll until status is COMPLETED (or FAILED)
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID/status -H "Authorization: Key $HEDRA_KEY"
+
+
+    # 3. Read the result — outputs[].url holds the generated file
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID -H "Authorization: Key $HEDRA_KEY"
+
+    ```
+
+
+    **Follow a job without polling** — a video model can run for minutes, so the loop above suits fast image jobs and little else. Submit with a `webhook` URL and Hedra delivers the finished result there, ed25519-signed and retried; set `PUT /webhooks/default` once to cover every job that names no URL of its own, and see *Webhooks* for the signature scheme and the retry ladder. To watch one job live instead, open `GET /jobs/{job_id}/stream` — Server-Sent Events carrying every status transition and lifecycle event until the job reaches a terminal state.
+
+
+    **Find a model** — `GET /models` lists every model with its `id` and human `name`; each operation in the *Run a model* section is titled with both, so a model you know by name ("GPT Image 2") maps straight to the id you submit to (`gpt-image-2`). One model''s typed input schema: `GET /models/{id}/openapi.json`.
+
+
+    Estimate cost before you run with `POST /models/{model}/estimate`. For volume pricing and custom limits, talk to us.
+
+
+    The full machine-readable spec is at `https://api.hedra.com/v3/openapi.json`.'
+  version: 3.21.14
+servers:
+- url: https://api.hedra.com/v3
+tags:
+- name: Webhooks
+  description: 'Configure, test, verify, and inspect outbound webhooks. **Delivery and retries.** Delivery is at-least-once. A `2xx` from your endpoint is success; anything else — including a redirect, which is never followed — is retried. Hedra makes up to **12 attempts over approximately 6 hours**, backing off 10s, 30s, 90s, 4m30s, 13m30s, 40m30s, then hourly. An endpoint that is unreachable for the whole window is marked `FAILED` and is not retried again; replay it with `POST /webhooks/deliveries/{job_id}/redeliver`. Two failures are permanent and stop the ladder immediately: a URL that resolves to a blocked address range, and a redirect pointing at one. Because the retry window is bounded, respond quickly and do your own processing asynchronously — acknowledge with a `2xx` first. **Deduplication.** Key on **`X-Hedra-Webhook-Id`**. It identifies the *event* — it is the job''s own id, and it is byte-identical across every retry and every replay. Do **not** hash the request body: each attempt re-signs the output URL, so the body legitimately differs between attempts of the same event and a body hash would treat every retry as new. Each POST also carries `X-Hedra-Webhook-Attempt` (1-based, informational) and **`X-Hedra-Webhook-Redelivery`** (`true` / `false`). Redelivery is the exception to deduplication: when it is `true`, an operator asked for this event to be sent again — process it even if you have already recorded that id, because that request is the whole reason it was sent. **Inspecting deliveries.** `GET /webhooks/deliveries` reports each delivery''s cumulative `attempts`, its latest outcome (`status`, `last_response_status`, `last_error`), and its replay history: `redelivery_count` counts operator replays, and `redeliveries` archives the outcome each replay superseded — a replay re-sends on the same delivery record. Each entry''s `attempts` value is the cumulative total when that replay was requested, so the per-cycle attempt counts (and any total beyond the 12-attempt ladder) can be read off the record directly. **Why a delivery failed.** `last_error` — on the delivery and on every archived replay entry — is the same error envelope a failed job returns from `GET /jobs/{job_id}`, not a free-text diagnostic. Its `code` comes from the one error vocabulary this API uses, narrowed for delivery to this set:
+
+
+    | `code` | Means |
+
+    | --- | --- |
+
+    | `DEADLINE_EXCEEDED` | Your endpoint did not respond before the delivery timeout. |
+
+    | `UNAVAILABLE` | Your endpoint could not be reached (DNS, TLS, or connection failure) or answered `5xx` — or redirected, which is never followed. |
+
+    | `RESOURCE_EXHAUSTED` | Your endpoint answered `429`. |
+
+    | `UNAUTHORIZED` | Your endpoint answered `401`. |
+
+    | `PERMISSION_DENIED` | Your endpoint answered `403`. |
+
+    | `NOT_FOUND` | Your endpoint answered `404`. |
+
+    | `INVALID_ARGUMENT` | Your endpoint answered some other `4xx`. |
+
+    | `FAILED_PRECONDITION` | The URL is not a permitted webhook target — it resolves to a blocked address range, or redirects to one. Fix the URL; replaying will not help. |
+
+    | `INTERNAL` | Hedra could not build the payload. |
+
+    | `UNKNOWN` | No classification is available, including for deliveries that failed before this field became structured. |
+
+
+    `retryable` describes the condition, not what Hedra did: every non-2xx response is retried on the ladder above, so it answers whether replaying the delivery is likely to help. The `message` is a fixed summary — your endpoint''s URL, address, headers, credentials, and response body are never echoed back, so treat your own logs, not this field, as the record of what your endpoint returned.'
+paths:
+  /webhooks/public-key:
+    get:
+      tags:
+      - Webhooks
+      summary: Public Key
+      operationId: webhooks_get_public_key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookPublicKey'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+      security: []
+  /webhooks/default:
+    get:
+      tags:
+      - Webhooks
+      summary: Get Default
+      operationId: webhooks_get_default
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDefaultConfig'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+    put:
+      tags:
+      - Webhooks
+      summary: Put Default
+      operationId: webhooks_put_default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookDefaultUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDefaultConfig'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+    delete:
+      tags:
+      - Webhooks
+      summary: Delete Default
+      operationId: webhooks_delete_default
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /webhooks/default/test:
+    post:
+      tags:
+      - Webhooks
+      summary: Test Default
+      operationId: webhooks_test_default
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookTestResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /webhooks/deliveries:
+    get:
+      tags:
+      - Webhooks
+      summary: List Deliveries
+      operationId: webhooks_list_deliveries
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Maximum items per page.
+          default: 20
+          title: Limit
+        description: Maximum items per page.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Opaque cursor from the previous page's `next_cursor`; omit for the first page.
+          title: Cursor
+        description: Opaque cursor from the previous page's `next_cursor`; omit for the first page.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeliveryListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /webhooks/deliveries/{job_id}/redeliver:
+    post:
+      tags:
+      - Webhooks
+      summary: Redeliver
+      description: 'Replay a finished delivery: reset it to PENDING and re-fire the signed POST.
+
+
+        404 if the delivery isn''t visible to the caller; 409 if a delivery for the
+
+        request is still in flight (a replay must not stack on it). The delivery is
+
+        re-validated (SSRF) and re-signed at send time, and the receiver dedupes on
+
+        ``X-Hedra-Webhook-Id``, so a replay is safe.
+
+
+        The webhook id is stable across the original and every replay, because it
+
+        identifies the event. Every attempt of a replayed cycle therefore also carries
+
+        ``X-Hedra-Webhook-Redelivery: true`` — without it a receiver doing exactly what
+
+        our guidance says (dedupe on the id) would silently discard the replay, which is
+
+        the one case where the duplicate is the point.'
+      operationId: webhooks_redeliver
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The job's id (`job_<uuid>`).
+          title: Job Id
+        description: The job's id (`job_<uuid>`).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeliverySummary'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+webhooks:
+  job.completed:
+    post:
+      tags:
+      - Webhooks
+      operationId: webhook_job_completed
+      summary: 'Webhook: job.completed'
+      description: 'POSTed to the job''s registered webhook URL when the job completes. Delivery is at-least-once: dedupe on `X-Hedra-Webhook-Id` and verify `X-Hedra-Webhook-Signature` before acting.'
+      parameters:
+      - name: X-Hedra-Webhook-Id
+        in: header
+        required: true
+        schema:
+          type: string
+        description: 'Deduplication id: the job''s own id (`job_<uuid>`), byte-identical across every retry and every replay. Signed.'
+      - name: X-Hedra-Webhook-Timestamp
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Unix epoch seconds the delivery was signed at; reject it when more than 5 minutes old. Signed.
+      - name: X-Hedra-Webhook-Event
+        in: header
+        required: true
+        schema:
+          type: string
+          const: job.completed
+        description: The event this delivery announces. Signed.
+      - name: X-Hedra-Webhook-Attempt
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 1-based attempt number within the current delivery cycle. Informational and outside the signature; do not branch on it.
+      - name: X-Hedra-Webhook-Redelivery
+        in: header
+        required: true
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        description: '`true` when an operator asked for this event to be sent again — process it even if its id was already recorded. Signed.'
+      - name: X-Hedra-Webhook-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Hex-encoded ed25519 signature over the canonical string documented on the Webhooks tag; verify against the key from `GET /webhooks/public-key` before acting on the request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        2XX:
+          description: Acknowledged; any `2xx` stops the retry ladder. Other responses are retried per the Webhooks tag.
+  job.failed:
+    post:
+      tags:
+      - Webhooks
+      operationId: webhook_job_failed
+      summary: 'Webhook: job.failed'
+      description: 'POSTed to the job''s registered webhook URL when the job fails; the payload''s `error` carries the same envelope the poll endpoint returns. Delivery is at-least-once: dedupe on `X-Hedra-Webhook-Id` and verify `X-Hedra-Webhook-Signature` before acting.'
+      parameters:
+      - name: X-Hedra-Webhook-Id
+        in: header
+        required: true
+        schema:
+          type: string
+        description: 'Deduplication id: the job''s own id (`job_<uuid>`), byte-identical across every retry and every replay. Signed.'
+      - name: X-Hedra-Webhook-Timestamp
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Unix epoch seconds the delivery was signed at; reject it when more than 5 minutes old. Signed.
+      - name: X-Hedra-Webhook-Event
+        in: header
+        required: true
+        schema:
+          type: string
+          const: job.failed
+        description: The event this delivery announces. Signed.
+      - name: X-Hedra-Webhook-Attempt
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 1-based attempt number within the current delivery cycle. Informational and outside the signature; do not branch on it.
+      - name: X-Hedra-Webhook-Redelivery
+        in: header
+        required: true
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        description: '`true` when an operator asked for this event to be sent again — process it even if its id was already recorded. Signed.'
+      - name: X-Hedra-Webhook-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Hex-encoded ed25519 signature over the canonical string documented on the Webhooks tag; verify against the key from `GET /webhooks/public-key` before acting on the request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+      responses:
+        2XX:
+          description: Acknowledged; any `2xx` stops the retry ladder. Other responses are retried per the Webhooks tag.
+  billing.top_off_failed:
+    post:
+      tags:
+      - Webhooks
+      operationId: webhook_billing_top_off_failed
+      summary: 'Webhook: billing.top_off_failed'
+      description: POSTed to the default webhook URL when Stripe declines the payment method for an automatic top-up of the API wallet. After a decline, Hedra holds further automatic top-ups until the hold expires, the payment method changes or a top-up is paid, and sends no event for a decline while a hold is in place. Retried on the same schedule as a job delivery, but not listed by `GET /webhooks/deliveries` and cannot be redelivered. Dedupe on `X-Hedra-Webhook-Id` and verify `X-Hedra-Webhook-Signature` before acting.
+      parameters:
+      - name: X-Hedra-Webhook-Id
+        in: header
+        required: true
+        schema:
+          type: string
+        description: 'Deduplication id: the event''s own id (`evt_<uuid>`), byte-identical across every retry. Signed.'
+      - name: X-Hedra-Webhook-Timestamp
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Unix epoch seconds the delivery was signed at; reject it when more than 5 minutes old. Signed.
+      - name: X-Hedra-Webhook-Event
+        in: header
+        required: true
+        schema:
+          type: string
+          const: billing.top_off_failed
+        description: The event this delivery announces. Signed.
+      - name: X-Hedra-Webhook-Attempt
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: 1-based attempt number within the current delivery cycle. Informational and outside the signature; do not branch on it.
+      - name: X-Hedra-Webhook-Redelivery
+        in: header
+        required: true
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        description: '`true` when an operator asked for this event to be sent again — process it even if its id was already recorded. Signed.'
+      - name: X-Hedra-Webhook-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Hex-encoded ed25519 signature over the canonical string documented on the Webhooks tag; verify against the key from `GET /webhooks/public-key` before acting on the request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopOffFailedEvent'
+      responses:
+        2XX:
+          description: Acknowledged; any `2xx` stops the retry ladder. Other responses are retried per the Webhooks tag.
+components:
+  schemas:
+    ErrorEnvelope:
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          title: Message
+          description: Human-readable summary of the error. Fixed per condition — match on `code`, not on this text.
+        retryable:
+          type: boolean
+          title: Retryable
+          description: Whether retrying the same request can succeed. Describes the condition, not a promise — pair with `retry_after` when present.
+          default: false
+        retry_after:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Retry After
+          description: Seconds to wait before retrying; set when the error is retryable. Mirrors the `Retry-After` response header.
+        param:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Param
+          description: The primary offending input field, when the error is about one specific field.
+        details:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FieldError'
+            type: array
+          - type: 'null'
+          title: Details
+          description: Every field-level problem, when the error is a validation failure — all of them at once, not just the first.
+        replaced_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Replaced By
+          description: The id of a successor model, set when the requested model has been retired (code `GONE`) and replaced; null otherwise. Lets a client programmatically migrate off a retired model.
+        billing:
+          anyOf:
+          - $ref: '#/components/schemas/BillingError'
+          - type: 'null'
+          description: Balance, price, and where to add funds — set when the request was refused for funds (code `INSUFFICIENT_BALANCE`); null otherwise.
+        type:
+          $ref: '#/components/schemas/ErrorType'
+          description: 'The OpenAI error type for this error''s HTTP status: `authentication_error` (401), `permission_error` (403), `rate_limit_error` (429), `server_error` (5xx), and `invalid_request_error` for every other status. Match on `code`, which is more specific.'
+          readOnly: true
+      type: object
+      required:
+      - code
+      - message
+      - type
+      title: ErrorEnvelope
+    WebhookDeliverySummary:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+          description: The job whose terminal event this delivers.
+        job_accessible:
+          type: boolean
+          title: Job Accessible
+          description: Whether GET /v3/jobs/{job_id} works for the caller — false when the job belongs to a different owner than the authenticating key.
+        model:
+          type: string
+          title: Model
+          description: The resolved model id the job ran on.
+        event_type:
+          anyOf:
+          - $ref: '#/components/schemas/WebhookEventType'
+          - type: 'null'
+          description: The terminal event this delivery announces; null while the job is still running and the delivery has not fired.
+        status:
+          $ref: '#/components/schemas/WebhookDeliveryStatus'
+        source:
+          $ref: '#/components/schemas/WebhookDeliverySource'
+        attempts:
+          type: integer
+          title: Attempts
+          description: Delivery attempts so far, cumulative across replays.
+        redelivery_count:
+          type: integer
+          title: Redelivery Count
+          description: How many operator replays this delivery has had; 0 means every attempt was automatic.
+          default: 0
+        redeliveries:
+          items:
+            $ref: '#/components/schemas/WebhookRedelivery'
+          type: array
+          title: Redeliveries
+          description: One entry per operator replay, oldest first — each holds the delivery's fields as they stood when the replay was requested. Replays recorded before this history existed appear only in `redelivery_count`, so the list can be shorter.
+          default: []
+        last_response_status:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Response Status
+          description: HTTP status of the most recent attempt; null when it never got a response.
+        last_error:
+          anyOf:
+          - $ref: '#/components/schemas/ErrorEnvelope'
+          - type: 'null'
+          description: 'Why the most recent delivery attempt failed, in the same error envelope `GET /jobs/{job_id}` returns for a failed job: a stable `code` from the shared error vocabulary, a fixed operator-facing `message`, and `retryable`. Null while no attempt has failed. Destination URLs, addresses, headers, credentials, response bodies, and internal exception text are never included. `retryable` describes the condition, not what Hedra did: every non-2xx response is retried on the published ladder, so it answers whether replaying this delivery is likely to help. Deliveries that failed before this field became structured report `UNKNOWN`.'
+        webhook_url:
+          type: string
+          title: Webhook Url
+          description: The destination endpoint.
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: ISO-8601 instant the delivery was registered.
+        last_attempt_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Attempt At
+          description: ISO-8601 instant of the most recent attempt; null before the first one.
+      type: object
+      required:
+      - job_id
+      - job_accessible
+      - model
+      - status
+      - source
+      - attempts
+      - webhook_url
+      - created_at
+      title: WebhookDeliverySummary
+    TopOffFailureReason:
+      description: Why an automatic top-up did not add funds.
+      enum:
+      - payment_method_declined
+      title: TopOffFailureReason
+      type: string
+    BillingEventType:
+      description: 'The billing events an outbound webhook announces.
+
+
+        Separate from `WebhookEventType`, which names the events of the job
+
+        deliveries `GET /webhooks/deliveries` lists. `GET /webhooks/deliveries`
+
+        does not list these.'
+      enum:
+      - billing.top_off_failed
+      title: BillingEventType
+      type: string
+    WebhookPayload:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+          description: The job this envelope describes.
+        model:
+          type: string
+          title: Model
+          description: The resolved model id this job ran on.
+        quality:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Quality
+          description: The quality level this job ran at; present only for models that offer quality levels.
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        prompt:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Prompt
+          description: The prompt this job ran with. When `enhance_prompt` was set, this is the rewritten prompt the model received rather than the one submitted. Absent on models that take no prompt.
+        outputs:
+          items:
+            $ref: '#/components/schemas/OutputItem'
+          type: array
+          title: Outputs
+          description: The job's outputs — always an array, even for a single output; empty until the job completes. Always empty for a chat completion, whose text the chat response returned.
+        metrics:
+          anyOf:
+          - $ref: '#/components/schemas/Metrics'
+          - type: 'null'
+          description: Timing for this job; present on completed jobs, and on every finished chat completion.
+        usage:
+          anyOf:
+          - $ref: '#/components/schemas/ChatUsage'
+          - type: 'null'
+          description: The tokens a chat completion used; absent for other jobs and before a chat completion's usage is recorded.
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/ErrorEnvelope'
+          - type: 'null'
+          description: Why the job failed; null unless `status` is `FAILED`.
+      type: object
+      required:
+      - job_id
+      - model
+      - status
+      title: WebhookPayload
+      description: 'Body of a webhook delivery: the `GET /jobs/{job_id}` result envelope without its poll-only fields (`logs`, `cost`, `currency`) — poll the job to read those.'
+    WebhookDefaultConfig:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+          description: The stored default endpoint; null when none is configured.
+        enabled:
+          type: boolean
+          title: Enabled
+          description: Whether the default endpoint is active.
+          default: false
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+          description: ISO-8601 instant the config last changed.
+        updated_by_key_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated By Key Id
+          description: The API key that last changed the config.
+      type: object
+      title: WebhookDefaultConfig
+    ChatUsage:
+      properties:
+        prompt_tokens:
+          type: integer
+          title: Prompt Tokens
+          description: Tokens in the prompt.
+        cached_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cached Tokens
+          description: Of `prompt_tokens`, how many the model served from cache, which Hedra charges at the model's cached input rate; null when the model did not report the count.
+        completion_tokens:
+          type: integer
+          title: Completion Tokens
+          description: Tokens generated, reasoning tokens included.
+        reasoning_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Reasoning Tokens
+          description: Of `completion_tokens`, how many the model spent reasoning; null when the model reports none.
+        estimated:
+          type: boolean
+          title: Estimated
+          description: True when the model reported no usage and the counts are estimated from the request and response bytes.
+      type: object
+      required:
+      - prompt_tokens
+      - completion_tokens
+      - estimated
+      title: ChatUsage
+      description: The tokens a chat completion used, as the model reported them.
+    OutputItem:
+      properties:
+        status:
+          $ref: '#/components/schemas/OutputStatus'
+          default: COMPLETED
+        asset_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asset Id
+          description: 'This output''s asset id — server-issued, and opaque. Pass it as `{"source": "asset", "asset_id": ...}` in a later submit''s media inputs to reuse this output as a reference. Null once the output has expired, since its bytes are no longer retrievable.'
+        voice_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Voice Id
+          description: The voice a voice-clone job created (`voice_<uuid>`). Send it back as `voice_id` on a text-to-speech submit to speak with this voice; it stays usable by the account that created it. Null for every other kind of output.
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          format: uri
+          title: Url
+          description: Presigned download URL for the output bytes, or null once the output has expired. Each call to `GET /v3/jobs/{job_id}` returns a newly signed one.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: Download or reuse this output before this ISO-8601 instant. After it, `status` can change to `EXPIRED`, with `url`, `asset_id` and `expires_at` null; `DELETE /v3/jobs/{job_id}` makes that change at once. Null for an output that does not expire, such as a cloned voice.
+        content_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Type
+          description: MIME type of the output bytes.
+        width:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Width
+          description: Width in pixels; null for an output with no frame (audio).
+        height:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Height
+          description: Height in pixels; null for an output with no frame (audio).
+        duration_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Duration Ms
+          description: Duration in milliseconds; null for a still image.
+        fps:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Fps
+          description: The video's measured frame rate; null for a non-video output and for a video that has not been probed yet.
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/ErrorEnvelope'
+          - type: 'null'
+          description: Why this item failed — present on a failed item within an otherwise-completed batch.
+      type: object
+      title: OutputItem
+      description: 'One item of a job''s `outputs[]` (`GET /v3/jobs/{job_id}`). `outputs` is
+
+        always an array, even for a single output.
+
+
+        Every key is always present. The ones a modality carries no value for
+
+        serialize as null — an image output reports `duration_ms: null` and
+
+        `fps: null`, an audio output `width: null` — so the shape is one object
+
+        rather than one per modality. `url` and `asset_id` go null on an expired
+
+        output, which has metadata but no retrievable bytes.
+
+
+        A voice-clone job''s output is a voice rather than a file: it reports
+
+        `voice_id` and leaves `url`, `content_type`, and `asset_id` null, since
+
+        there are no bytes to fetch and nothing to pass back as a media input.'
+    WebhookTestResponse:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+          description: Whether the test delivery got a 2xx from the endpoint.
+        response_status:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Response Status
+          description: HTTP status the endpoint returned; null when the request never got a response.
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+          description: Why the test failed; null on success.
+      type: object
+      required:
+      - ok
+      title: WebhookTestResponse
+    ErrorCode:
+      type: string
+      enum:
+      - UNKNOWN
+      - INVALID_ARGUMENT
+      - NOT_FOUND
+      - GONE
+      - ALREADY_EXISTS
+      - ALREADY_IN_PROGRESS
+      - UNAUTHORIZED
+      - PERMISSION_DENIED
+      - INSUFFICIENT_BALANCE
+      - MODERATION_FAILED
+      - FAILED_PRECONDITION
+      - CANCELLED
+      - DEADLINE_EXCEEDED
+      - RESOURCE_EXHAUSTED
+      - UNAVAILABLE
+      - INTERNAL
+      title: ErrorCode
+      description: "Universal error code space. Modeled after gRPC status codes.\n\nEvery exception in the system carries an ErrorCode. SDK clients map\n3rd-party errors to these codes at the lowest level. Retry logic,\nHTTP status mapping, and OTEL metrics all key off this enum.\n\nNOTE: The semantic meaning of these error codes is roughly mapped from the\n    semantic of the gRPC status codes: see\n    https://grpc.io/docs/guides/status-codes/ for details."
+    WebhookPublicKey:
+      properties:
+        algorithm:
+          type: string
+          title: Algorithm
+          description: Signature algorithm; always `ed25519`.
+          default: ed25519
+        public_key:
+          type: string
+          title: Public Key
+          description: Base64-encoded ed25519 public key. Verify each delivery's signature header with it before trusting the payload.
+      type: object
+      required:
+      - public_key
+      title: WebhookPublicKey
+      description: The ed25519 public key callers verify outbound webhook signatures with.
+    WebhookDeliveryStatus:
+      type: string
+      enum:
+      - PENDING
+      - DELIVERING
+      - DELIVERED
+      - FAILED
+      title: WebhookDeliveryStatus
+      description: 'Where a delivery stands: queued, in flight, or its terminal outcome.'
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: Debug id to quote to support (32-char hex trace id), also emitted as the `X-Trace-Id` response header.
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+      description: 'Top-level error body: ``{"error": {...}}`` plus a debug id.'
+    BillingError:
+      properties:
+        balance:
+          type: number
+          title: Balance
+          description: Spendable balance on the account this request bills, at the moment it was refused. The same value `GET /balance` returns.
+        required:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Required
+          description: What this request needed. Null when the refusal is a funding precondition rather than a priced one — an upload is not priced, and some models cannot be quoted until their inputs are measured (`POST /models/{model}/estimate` says so explicitly).
+        currency:
+          type: string
+          title: Currency
+          description: ISO-4217 code the amounts above are denominated in.
+          default: USD
+        funding_url:
+          type: string
+          title: Funding Url
+          description: Where a human can add funds to the account this request bills. The API itself cannot add them.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: 'Why the automatic top-up did not fund the balance, when known. `card_declined`: the card that pays for automatic top-ups was declined, and the payment method must be updated on the billing page before a top-up can succeed. Clients MUST tolerate unrecognized values: new reasons may be added at any time.'
+        affordable_output_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Affordable Output Tokens
+          description: On a chat request's refusal, the largest output bound in tokens, `max_tokens` or `max_output_tokens` on `POST /responses`, whose hold the balance covers for this request's prompt. A chat request (`POST /chat/completions`, `POST /responses`, `POST /anthropic/v1/messages`) holds its worst-case price, `required`, until it completes. The balance covers the hold of the same request with this bound until the balance changes. 0 when the balance does not cover the prompt with the model's smallest output bound. Null on every other refusal.
+      type: object
+      required:
+      - balance
+      - funding_url
+      title: BillingError
+      description: 'Why a request was refused for funds, and what would clear it.
+
+
+        The envelope''s structured detail for `INSUFFICIENT_BALANCE`, the way
+
+        `details` is its structured detail for a validation failure. Every amount is
+
+        in `currency`, and `balance` is the same number `GET /balance` returns — so
+
+        a client can decide whether to top up, wait, or fail over without a second
+
+        round trip to work out which balance was short.'
+    JobStatus:
+      type: string
+      enum:
+      - IN_QUEUE
+      - IN_PROGRESS
+      - COMPLETED
+      - FAILED
+      title: JobStatus
+      description: The four states a job can be in.
+    ErrorType:
+      type: string
+      enum:
+      - invalid_request_error
+      - authentication_error
+      - permission_error
+      - rate_limit_error
+      - server_error
+      title: ErrorType
+      description: 'The OpenAI error type for an error''s HTTP status, published so an
+
+        OpenAI SDK''s `APIStatusError.type` carries a value.'
+    FieldError:
+      properties:
+        field:
+          type: string
+          title: Field
+          description: Dotted path to the offending input (e.g. `input.resolution`).
+        message:
+          type: string
+          title: Message
+          description: What is wrong with this field's value.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Machine-readable hint for which constraint failed ("required", "enum", "type", …).
+        allowed:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allowed
+          description: Accepted values for an enum, or accepted field names on the first unknown-field violation. Omitted on subsequent unknown fields.
+      type: object
+      required:
+      - field
+      - message
+      title: FieldError
+      description: 'One field-level validation problem in a request body.
+
+
+        `field` is the dotted path to the offending input (e.g. `input.resolution`);
+
+        `allowed` lists the accepted values when the field is an enum, so a caller
+
+        can fix it without re-fetching the model schema.'
+    WebhookDefaultUpdate:
+      properties:
+        url:
+          type: string
+          maxLength: 8192
+          minLength: 1
+          title: Url
+          description: HTTPS endpoint to receive terminal webhooks for every job that names no per-job `webhook` on submit.
+        enabled:
+          type: boolean
+          title: Enabled
+          description: Whether the default endpoint receives deliveries; false pauses it without discarding the URL.
+          default: true
+      type: object
+      required:
+      - url
+      title: WebhookDefaultUpdate
+    WebhookRedelivery:
+      properties:
+        requested_at:
+          type: string
+          format: date-time
+          title: Requested At
+          description: ISO-8601 instant the redelivery was requested.
+        status:
+          $ref: '#/components/schemas/WebhookDeliveryStatus'
+        attempts:
+          type: integer
+          title: Attempts
+          description: Cumulative attempt count as it stood when this replay was requested.
+        last_response_status:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Response Status
+          description: HTTP status of the superseded cycle's last attempt; null when it never got a response.
+        last_error:
+          anyOf:
+          - $ref: '#/components/schemas/ErrorEnvelope'
+          - type: 'null'
+          description: 'Why the most recent delivery attempt failed, in the same error envelope `GET /jobs/{job_id}` returns for a failed job: a stable `code` from the shared error vocabulary, a fixed operator-facing `message`, and `retryable`. Null while no attempt has failed. Destination URLs, addresses, headers, credentials, response bodies, and internal exception text are never included. `retryable` describes the condition, not what Hedra did: every non-2xx response is retried on the published ladder, so it answers whether replaying this delivery is likely to help. Deliveries that failed before this field became structured report `UNKNOWN`.'
+        last_attempt_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Attempt At
+          description: ISO-8601 instant of the superseded cycle's last attempt.
+      type: object
+      required:
+      - requested_at
+      - status
+      - attempts
+      title: WebhookRedelivery
+      description: 'The outcome a replay superseded: the delivery''s own fields as they stood
+
+        when the operator requested the redelivery. Only finished deliveries can be
+
+        replayed, so `status` is always terminal (`DELIVERED` / `FAILED`).'
+    WebhookDeliverySource:
+      type: string
+      enum:
+      - per_job
+      - default
+      title: WebhookDeliverySource
+      description: Which URL resolution created this delivery.
+    Metrics:
+      properties:
+        processing_time_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Processing Time Ms
+          description: Wall-clock milliseconds between this job's `started` and `completed` lifecycle events. It brackets provider queueing, generation, output download, and any failed attempts with their retry backoff, so it measures the whole job rather than the model's own inference time, and it is not a provider-reported figure. Polled results and webhook deliveries report the same value. Null when the job did not record both events, after `DELETE /v3/jobs/{job_id}`, and possibly once the job's output is `EXPIRED`. For a chat completion, the milliseconds from dispatching the request to the provider until its last byte.
+        time_to_first_token_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Time To First Token Ms
+          description: For a chat completion, the milliseconds from dispatching the request to the provider until its first chunk. Absent for other jobs.
+      type: object
+      title: Metrics
+      description: Timing measured for a completed job.
+    WebhookEventType:
+      type: string
+      enum:
+      - job.completed
+      - job.failed
+      title: WebhookEventType
+      description: 'The terminal events an outbound webhook announces.
+
+
+        One delivery carries exactly one of these, chosen from the job''s final
+
+        status when the delivery fires.'
+    WebhookDeliveryListResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/WebhookDeliverySummary'
+          type: array
+          title: Data
+          description: This page of items.
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+          description: Opaque cursor for the next page, or null when this response completes the list. Always present. Endpoints that serve the whole collection at once always return null.
+      type: object
+      required:
+      - data
+      - next_cursor
+      title: WebhookDeliveryListResponse
+    TopOffFailedEvent:
+      description: 'Body of a `billing.top_off_failed` webhook.
+
+
+        Hedra sends this event when Stripe declines the payment method for an
+
+        automatic top-up of the API wallet. After a decline, Hedra holds further
+
+        automatic top-ups until the hold expires, the payment method changes or a
+
+        top-up is paid, and sends no event for a decline while a hold is in place.'
+      properties:
+        id:
+          description: The event's id, the same value as `X-Hedra-Webhook-Id`.
+          title: Id
+          type: string
+        type:
+          $ref: '#/components/schemas/BillingEventType'
+          default: billing.top_off_failed
+          description: Always `billing.top_off_failed`.
+        created_at:
+          description: When the top-up was declined.
+          format: date-time
+          title: Created At
+          type: string
+        reason:
+          $ref: '#/components/schemas/TopOffFailureReason'
+        amount_attempted:
+          description: The amount the top-up tried to add.
+          title: Amount Attempted
+          type: number
+        balance:
+          description: The API wallet's balance when this event was sent.
+          title: Balance
+          type: number
+        currency:
+          default: USD
+          description: ISO-4217 currency code for every amount in this event.
+          title: Currency
+          type: string
+      required:
+      - id
+      - type
+      - created_at
+      - reason
+      - amount_attempted
+      - balance
+      - currency
+      title: TopOffFailedEvent
+      type: object
+    OutputStatus:
+      type: string
+      enum:
+      - COMPLETED
+      - FAILED
+      - EXPIRED
+      title: OutputStatus
+      description: The state of a single output within a job's result.
+  securitySchemes:
+    KeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Primary scheme: `Authorization: Key <key_id>:<secret>`.'
+    BearerToken:
+      type: http
+      scheme: bearer
+      description: '`Authorization: Bearer <credential>` — accepts an API key (`<key_id>:<secret>`) or an ephemeral browser token minted via `POST /tokens` (inherits the minting key''s scopes and workspace).'

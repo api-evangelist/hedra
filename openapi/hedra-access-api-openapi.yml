@@ -1,0 +1,1680 @@
+openapi: 3.2.0
+info:
+  title: Hedra API v3 Access API
+  description: 'Generate images, video, and audio with over 100 models through one API. Fund your wallet, then every model runs through the same three requests: submit a job, poll it, download the output. Browse the model catalog to pick one.
+
+
+    **Authenticate** every request with your API key — create one in the developer console: `Authorization: Key :`.
+
+
+    **Fund the API wallet** before your first call. It is prepaid and held in US dollars, it is separate from your Hedra Studio balance, and a workspace starts with **$0.00** in it; nothing you buy or hold in Studio moves money into it. Until it is funded, every generation is refused with `402 INSUFFICIENT_BALANCE`; uploading inputs with `POST /files` is free and works on an empty wallet, so you can stage a request and only meet the gate at submit. Add funds in the developer console, and read the wallet any time with `GET /balance`.
+
+
+    **Quickstart** — submit a job, poll it, then read the output URL:
+
+
+    ```bash
+
+    # 1. Submit — capture the job id from the 202 ack
+
+    JOB_ID=$(curl -sS -X POST https://api.hedra.com/v3/models/gpt-image-2 \
+
+    -H "Authorization: Key $HEDRA_KEY" \
+
+    -H "Content-Type: application/json" \
+
+    -d ''{"input": {"prompt": "a space cat", "quality": "medium", "aspect_ratio": "1:1", "resolution": "1K"}}'' | jq -r .job_id)
+
+
+    # 2. Poll until status is COMPLETED (or FAILED)
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID/status -H "Authorization: Key $HEDRA_KEY"
+
+
+    # 3. Read the result — outputs[].url holds the generated file
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID -H "Authorization: Key $HEDRA_KEY"
+
+    ```
+
+
+    **Follow a job without polling** — a video model can run for minutes, so the loop above suits fast image jobs and little else. Submit with a `webhook` URL and Hedra delivers the finished result there, ed25519-signed and retried; set `PUT /webhooks/default` once to cover every job that names no URL of its own, and see *Webhooks* for the signature scheme and the retry ladder. To watch one job live instead, open `GET /jobs/{job_id}/stream` — Server-Sent Events carrying every status transition and lifecycle event until the job reaches a terminal state.
+
+
+    **Find a model** — `GET /models` lists every model with its `id` and human `name`; each operation in the *Run a model* section is titled with both, so a model you know by name ("GPT Image 2") maps straight to the id you submit to (`gpt-image-2`). One model''s typed input schema: `GET /models/{id}/openapi.json`.
+
+
+    Estimate cost before you run with `POST /models/{model}/estimate`. For volume pricing and custom limits, talk to us.
+
+
+    The full machine-readable spec is at `https://api.hedra.com/v3/openapi.json`.'
+  version: 3.21.14
+servers:
+- url: https://api.hedra.com/v3
+tags:
+- name: Access
+  description: API keys, browser tokens, and file uploads.
+paths:
+  /keys:
+    post:
+      tags:
+      - Access
+      summary: Create Key
+      operationId: keys_create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyCreateResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+    get:
+      tags:
+      - Access
+      summary: List Keys
+      operationId: keys_list
+      parameters:
+      - name: workspace_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: List keys of this workspace; omitted means the authenticating key's workspace.
+          title: Workspace Id
+        description: List keys of this workspace; omitted means the authenticating key's workspace.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /keys/{key_id}/rotate:
+    post:
+      tags:
+      - Access
+      summary: Rotate Key
+      operationId: keys_rotate
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The key's public identifier.
+          title: Key Id
+        description: The key's public identifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyRotateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyRotateResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /keys/{key_id}:
+    delete:
+      tags:
+      - Access
+      summary: Revoke Key
+      operationId: keys_revoke
+      parameters:
+      - name: key_id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The key's public identifier.
+          title: Key Id
+        description: The key's public identifier.
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /tokens:
+    post:
+      tags:
+      - Access
+      summary: Create Token
+      operationId: tokens_create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenCreateResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /files:
+    post:
+      tags:
+      - Access
+      summary: Upload File
+      description: 'Store a file and return a short-lived URL to pass in a model''s `input`.
+
+
+        Free, and available on an empty API wallet — funding is enforced when you
+
+        submit a generation, not when you upload its inputs. `GET /v3/balance`
+
+        reports what the wallet holds.
+
+
+        Returns 402 while uploads are paused, which happens when your recent
+
+        requests were all refused for insufficient funds. Adding funds to the API
+
+        wallet resumes them.'
+      operationId: files_upload
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '402':
+          description: New requests are paused because this user's recent requests were all refused for insufficient funds. Adding funds resumes them.
+          content:
+            application/json:
+              examples:
+                unfunded_submit:
+                  summary: The API wallet cannot pay for this job
+                  value:
+                    error:
+                      code: INSUFFICIENT_BALANCE
+                      message: Your API wallet balance is $0.00 and this request costs $0.05. The API wallet is funded separately from Studio and pays only for API requests — add funds at https://www.hedra.com/develop/billing, then retry.
+                      retryable: false
+                      billing:
+                        balance: 0.0
+                        required: 0.05
+                        currency: USD
+                        funding_url: https://www.hedra.com/develop/billing?add_funds=true
+                unquotable_submit:
+                  summary: The model cannot be priced before its inputs are measured, so `required` is null
+                  value:
+                    error:
+                      code: INSUFFICIENT_BALANCE
+                      message: Your API wallet balance is $0.00. The API wallet is funded separately from Studio and pays only for API requests — add funds at https://www.hedra.com/develop/billing, then retry.
+                      retryable: false
+                      billing:
+                        balance: 0.0
+                        currency: USD
+                        funding_url: https://www.hedra.com/develop/billing?add_funds=true
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload.
+              required:
+              - file
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+components:
+  schemas:
+    TokenCreateRequest:
+      properties:
+        ttl_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ttl Seconds
+          description: Seconds until the token expires; omitted means the service default.
+        scopes:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ApiKeyScope'
+            type: array
+          - type: 'null'
+          title: Scopes
+          description: Scopes granted to the token. Omitted means every scope of the minting key; an explicit subset narrows the grant, and requesting beyond the key's scopes is a 403.
+      type: object
+      title: TokenCreateRequest
+    BillingError:
+      properties:
+        balance:
+          type: number
+          title: Balance
+          description: Spendable balance on the account this request bills, at the moment it was refused. The same value `GET /balance` returns.
+        required:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Required
+          description: What this request needed. Null when the refusal is a funding precondition rather than a priced one — an upload is not priced, and some models cannot be quoted until their inputs are measured (`POST /models/{model}/estimate` says so explicitly).
+        currency:
+          type: string
+          title: Currency
+          description: ISO-4217 code the amounts above are denominated in.
+          default: USD
+        funding_url:
+          type: string
+          title: Funding Url
+          description: Where a human can add funds to the account this request bills. The API itself cannot add them.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: 'Why the automatic top-up did not fund the balance, when known. `card_declined`: the card that pays for automatic top-ups was declined, and the payment method must be updated on the billing page before a top-up can succeed. Clients MUST tolerate unrecognized values: new reasons may be added at any time.'
+        affordable_output_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Affordable Output Tokens
+          description: On a chat request's refusal, the largest output bound in tokens, `max_tokens` or `max_output_tokens` on `POST /responses`, whose hold the balance covers for this request's prompt. A chat request (`POST /chat/completions`, `POST /responses`, `POST /anthropic/v1/messages`) holds its worst-case price, `required`, until it completes. The balance covers the hold of the same request with this bound until the balance changes. 0 when the balance does not cover the prompt with the model's smallest output bound. Null on every other refusal.
+      type: object
+      required:
+      - balance
+      - funding_url
+      title: BillingError
+      description: 'Why a request was refused for funds, and what would clear it.
+
+
+        The envelope''s structured detail for `INSUFFICIENT_BALANCE`, the way
+
+        `details` is its structured detail for a validation failure. Every amount is
+
+        in `currency`, and `balance` is the same number `GET /balance` returns — so
+
+        a client can decide whether to top up, wait, or fail over without a second
+
+        round trip to work out which balance was short.'
+    ErrorEnvelope:
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          title: Message
+          description: Human-readable summary of the error. Fixed per condition — match on `code`, not on this text.
+        retryable:
+          type: boolean
+          title: Retryable
+          description: Whether retrying the same request can succeed. Describes the condition, not a promise — pair with `retry_after` when present.
+          default: false
+        retry_after:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Retry After
+          description: Seconds to wait before retrying; set when the error is retryable. Mirrors the `Retry-After` response header.
+        param:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Param
+          description: The primary offending input field, when the error is about one specific field.
+        details:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FieldError'
+            type: array
+          - type: 'null'
+          title: Details
+          description: Every field-level problem, when the error is a validation failure — all of them at once, not just the first.
+        replaced_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Replaced By
+          description: The id of a successor model, set when the requested model has been retired (code `GONE`) and replaced; null otherwise. Lets a client programmatically migrate off a retired model.
+        billing:
+          anyOf:
+          - $ref: '#/components/schemas/BillingError'
+          - type: 'null'
+          description: Balance, price, and where to add funds — set when the request was refused for funds (code `INSUFFICIENT_BALANCE`); null otherwise.
+        type:
+          $ref: '#/components/schemas/ErrorType'
+          description: 'The OpenAI error type for this error''s HTTP status: `authentication_error` (401), `permission_error` (403), `rate_limit_error` (429), `server_error` (5xx), and `invalid_request_error` for every other status. Match on `code`, which is more specific.'
+          readOnly: true
+      type: object
+      required:
+      - code
+      - message
+      - type
+      title: ErrorEnvelope
+    KeyCreateRequest:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable label for the key.
+        scopes:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ApiKeyScope'
+            type: array
+          - type: 'null'
+          title: Scopes
+          description: Scopes granted to the key; omitted means the creating credential's own scopes.
+        kind:
+          $ref: '#/components/schemas/ApiKeyKind'
+          description: '`personal` (default) dies with the member; `service` is workspace-shared, OWNER/ADMIN-managed, and survives member removal.'
+          default: personal
+        workspace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Id
+          description: Target workspace; omitted means the authenticating key's workspace.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: ISO-8601 instant the key stops authenticating; omitted means it never expires.
+      type: object
+      title: KeyCreateRequest
+    FileUploadResponse:
+      properties:
+        url:
+          type: string
+          title: Url
+          description: 'Presigned GET URL for the stored bytes — the handle itself. Pass it back verbatim, query string included: a modified URL is not recognised as your handle and is rejected as an external URL.'
+        content_type:
+          type: string
+          title: Content Type
+          description: MIME type sniffed from the uploaded bytes; the request's own Content-Type and filename are never trusted. Decides which media inputs will accept this handle.
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+          description: 'ISO-8601 instant after which `url` is rejected. Submitting with a lapsed handle is a 400 with `reason: "expired"`, not a fetch failure; upload the file again for a fresh handle.'
+      type: object
+      required:
+      - url
+      - content_type
+      - expires_at
+      title: FileUploadResponse
+      description: '``POST /v3/files`` result. The presigned ``url`` *is* the file handle:
+
+        pass it as ``{"source": "url", "url": <url>}`` in any media input the
+
+        model''s schema advertises (``image`` / ``end_image`` / ``images`` /
+
+        ``audio`` / ``video``) on submit.'
+    ErrorType:
+      type: string
+      enum:
+      - invalid_request_error
+      - authentication_error
+      - permission_error
+      - rate_limit_error
+      - server_error
+      title: ErrorType
+      description: 'The OpenAI error type for an error''s HTTP status, published so an
+
+        OpenAI SDK''s `APIStatusError.type` carries a value.'
+    FieldError:
+      properties:
+        field:
+          type: string
+          title: Field
+          description: Dotted path to the offending input (e.g. `input.resolution`).
+        message:
+          type: string
+          title: Message
+          description: What is wrong with this field's value.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Machine-readable hint for which constraint failed ("required", "enum", "type", …).
+        allowed:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allowed
+          description: Accepted values for an enum, or accepted field names on the first unknown-field violation. Omitted on subsequent unknown fields.
+      type: object
+      required:
+      - field
+      - message
+      title: FieldError
+      description: 'One field-level validation problem in a request body.
+
+
+        `field` is the dotted path to the offending input (e.g. `input.resolution`);
+
+        `allowed` lists the accepted values when the field is an enum, so a caller
+
+        can fix it without re-fetching the model schema.'
+    KeyCreateResponse:
+      properties:
+        key_id:
+          type: string
+          title: Key Id
+          description: The key's public identifier.
+        credential:
+          type: string
+          title: Credential
+          description: The full `<key_id>:<secret>` pair — a valid Bearer credential. Returned exactly once, at creation; store it now.
+        kind:
+          $ref: '#/components/schemas/ApiKeyKind'
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable label for the key.
+        scopes:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Scopes
+          description: Scopes granted to the key; null means every scope (a legacy key predating scopes).
+        workspace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Id
+          description: The workspace the key bills and acts in.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: ISO-8601 instant the key stops authenticating; null means it never expires.
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+          description: ISO-8601 instant the key was created.
+      type: object
+      required:
+      - key_id
+      - credential
+      - kind
+      title: KeyCreateResponse
+    ErrorCode:
+      type: string
+      enum:
+      - UNKNOWN
+      - INVALID_ARGUMENT
+      - NOT_FOUND
+      - GONE
+      - ALREADY_EXISTS
+      - ALREADY_IN_PROGRESS
+      - UNAUTHORIZED
+      - PERMISSION_DENIED
+      - INSUFFICIENT_BALANCE
+      - MODERATION_FAILED
+      - FAILED_PRECONDITION
+      - CANCELLED
+      - DEADLINE_EXCEEDED
+      - RESOURCE_EXHAUSTED
+      - UNAVAILABLE
+      - INTERNAL
+      title: ErrorCode
+      description: "Universal error code space. Modeled after gRPC status codes.\n\nEvery exception in the system carries an ErrorCode. SDK clients map\n3rd-party errors to these codes at the lowest level. Retry logic,\nHTTP status mapping, and OTEL metrics all key off this enum.\n\nNOTE: The semantic meaning of these error codes is roughly mapped from the\n    semantic of the gRPC status codes: see\n    https://grpc.io/docs/guides/status-codes/ for details."
+    ApiKeyKind:
+      type: string
+      enum:
+      - personal
+      - service
+      title: ApiKeyKind
+      description: Personal keys die with the member; service keys belong to the workspace.
+    KeyStatus:
+      type: string
+      enum:
+      - active
+      - revoked
+      - expired
+      title: KeyStatus
+    TokenCreateResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+          description: The ephemeral token — a valid Bearer credential until it expires. Shown exactly once.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: ISO-8601 instant the token stops authenticating.
+      type: object
+      required:
+      - token
+      title: TokenCreateResponse
+    KeyRotateResponse:
+      properties:
+        key_id:
+          type: string
+          title: Key Id
+          description: The key's public identifier — unchanged by rotation.
+        credential:
+          type: string
+          title: Credential
+          description: The new `<key_id>:<secret>` pair — a valid Bearer credential, shown exactly once, like at create.
+        kind:
+          $ref: '#/components/schemas/ApiKeyKind'
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable label for the key.
+        scopes:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Scopes
+          description: Scopes granted to the key; null means every scope (a legacy key predating scopes).
+        workspace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Id
+          description: The workspace the key bills and acts in.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: ISO-8601 instant the key stops authenticating; null means it never expires.
+        previous_secret_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Previous Secret Expires At
+          description: ISO-8601 instant the previous secret stops authenticating — the end of the grace window.
+      type: object
+      required:
+      - key_id
+      - credential
+      - kind
+      title: KeyRotateResponse
+    KeySummary:
+      properties:
+        key_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Key Id
+          description: The key's public identifier; null only for a legacy key that predates public key ids.
+        kind:
+          $ref: '#/components/schemas/ApiKeyKind'
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable label for the key.
+        scopes:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Scopes
+          description: Scopes granted to the key; null means every scope (a legacy key predating scopes).
+        workspace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workspace Id
+          description: The workspace the key bills and acts in.
+        status:
+          $ref: '#/components/schemas/KeyStatus'
+        created_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Created At
+          description: ISO-8601 instant the key was created.
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+          description: ISO-8601 instant the key stops authenticating; null means it never expires.
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Revoked At
+          description: ISO-8601 instant the key was revoked; null unless `status` is `revoked`.
+        last_used_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Used At
+          description: ISO-8601 instant the key last authenticated a request; null when unused.
+      type: object
+      required:
+      - key_id
+      - kind
+      - status
+      title: KeySummary
+    ApiKeyScope:
+      type: string
+      enum:
+      - jobs:read
+      - jobs:write
+      - models:read
+      - files:write
+      - webhooks:manage
+      - log_drains:manage
+      - usage:read
+      - keys:manage
+      - chat:write
+      title: ApiKeyScope
+      description: Least-privilege grants carried by v3 API keys.
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: Debug id to quote to support (32-char hex trace id), also emitted as the `X-Trace-Id` response header.
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+      description: 'Top-level error body: ``{"error": {...}}`` plus a debug id.'
+    KeyRotateRequest:
+      properties:
+        grace_period_seconds:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Grace Period Seconds
+          description: Seconds the old secret keeps authenticating after the rotation; omitted means the service default (24h).
+      type: object
+      title: KeyRotateRequest
+    KeyListResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/KeySummary'
+          type: array
+          title: Data
+          description: This page of items.
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+          description: Opaque cursor for the next page, or null when this response completes the list. Always present. Endpoints that serve the whole collection at once always return null.
+      type: object
+      required:
+      - data
+      - next_cursor
+      title: KeyListResponse
+  securitySchemes:
+    KeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Primary scheme: `Authorization: Key <key_id>:<secret>`.'
+    BearerToken:
+      type: http
+      scheme: bearer
+      description: '`Authorization: Bearer <credential>` — accepts an API key (`<key_id>:<secret>`) or an ephemeral browser token minted via `POST /tokens` (inherits the minting key''s scopes and workspace).'

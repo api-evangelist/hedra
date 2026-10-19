@@ -1,0 +1,1846 @@
+openapi: 3.2.0
+info:
+  title: Hedra API v3 Models API
+  description: 'Generate images, video, and audio with over 100 models through one API. Fund your wallet, then every model runs through the same three requests: submit a job, poll it, download the output. Browse the model catalog to pick one.
+
+
+    **Authenticate** every request with your API key — create one in the developer console: `Authorization: Key :`.
+
+
+    **Fund the API wallet** before your first call. It is prepaid and held in US dollars, it is separate from your Hedra Studio balance, and a workspace starts with **$0.00** in it; nothing you buy or hold in Studio moves money into it. Until it is funded, every generation is refused with `402 INSUFFICIENT_BALANCE`; uploading inputs with `POST /files` is free and works on an empty wallet, so you can stage a request and only meet the gate at submit. Add funds in the developer console, and read the wallet any time with `GET /balance`.
+
+
+    **Quickstart** — submit a job, poll it, then read the output URL:
+
+
+    ```bash
+
+    # 1. Submit — capture the job id from the 202 ack
+
+    JOB_ID=$(curl -sS -X POST https://api.hedra.com/v3/models/gpt-image-2 \
+
+    -H "Authorization: Key $HEDRA_KEY" \
+
+    -H "Content-Type: application/json" \
+
+    -d ''{"input": {"prompt": "a space cat", "quality": "medium", "aspect_ratio": "1:1", "resolution": "1K"}}'' | jq -r .job_id)
+
+
+    # 2. Poll until status is COMPLETED (or FAILED)
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID/status -H "Authorization: Key $HEDRA_KEY"
+
+
+    # 3. Read the result — outputs[].url holds the generated file
+
+    curl https://api.hedra.com/v3/jobs/$JOB_ID -H "Authorization: Key $HEDRA_KEY"
+
+    ```
+
+
+    **Follow a job without polling** — a video model can run for minutes, so the loop above suits fast image jobs and little else. Submit with a `webhook` URL and Hedra delivers the finished result there, ed25519-signed and retried; set `PUT /webhooks/default` once to cover every job that names no URL of its own, and see *Webhooks* for the signature scheme and the retry ladder. To watch one job live instead, open `GET /jobs/{job_id}/stream` — Server-Sent Events carrying every status transition and lifecycle event until the job reaches a terminal state.
+
+
+    **Find a model** — `GET /models` lists every model with its `id` and human `name`; each operation in the *Run a model* section is titled with both, so a model you know by name ("GPT Image 2") maps straight to the id you submit to (`gpt-image-2`). One model''s typed input schema: `GET /models/{id}/openapi.json`.
+
+
+    Estimate cost before you run with `POST /models/{model}/estimate`. For volume pricing and custom limits, talk to us.
+
+
+    The full machine-readable spec is at `https://api.hedra.com/v3/openapi.json`.'
+  version: 3.21.14
+servers:
+- url: https://api.hedra.com/v3
+tags:
+- name: Models
+  description: Discover models and estimate cost.
+paths:
+  /models:
+    get:
+      tags:
+      - Models
+      summary: List Models
+      operationId: models_list
+      parameters:
+      - name: modality
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/Modality'
+          - type: 'null'
+          description: Only models with this modality, matching `modality` on each returned model.
+          title: Modality
+        description: Only models with this modality, matching `modality` on each returned model.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security: []
+  /models/{model}:
+    get:
+      tags:
+      - Models
+      summary: Get Model
+      operationId: models_get
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelDetail'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security: []
+  /models/{model}/jobs:
+    get:
+      tags:
+      - Models
+      summary: List Model Jobs
+      operationId: models_list_model_jobs
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          description: Maximum items per page.
+          default: 20
+          title: Limit
+        description: Maximum items per page.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Opaque cursor from the previous page's `next_cursor`; omit for the first page.
+          title: Cursor
+        description: Opaque cursor from the previous page's `next_cursor`; omit for the first page.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /models/{model}/voices:
+    get:
+      tags:
+      - Models
+      summary: List Model Voices
+      description: Voices this model accepts — the shared library, plus the caller's own cloned voices when the request carries credentials.
+      operationId: models_list_voices
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - {}
+      - KeyAuth: []
+      - BearerToken: []
+  /models/{model}/voices/search:
+    get:
+      tags:
+      - Models
+      summary: Search Model Voices
+      description: The voices this model accepts, ranked against a description — the whole shared library, including the voices the listing does not return.
+      operationId: models_search_voices
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: What the voice should sound like, in plain words — "warm british narrator", "energetic young announcer". Matched against the whole library for this model's provider, not just the voices `GET /v3/models/{model}/voices` returns.
+          title: Q
+        description: What the voice should sound like, in plain words — "warm british narrator", "energetic young announcer". Matched against the whole library for this model's provider, not just the voices `GET /v3/models/{model}/voices` returns.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          description: Maximum voices to return. Applies to the whole response.
+          default: 20
+          title: Limit
+        description: Maximum voices to return. Applies to the whole response.
+      - name: gender
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/VoiceGender'
+          - type: 'null'
+          description: Only voices curated with this gender.
+          title: Gender
+        description: Only voices curated with this gender.
+      - name: language
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 8
+          - type: 'null'
+          description: Only voices curated for this language, as an ISO 639-1 two-letter code (`en`, `es`, `fr`).
+          title: Language
+        description: Only voices curated for this language, as an ISO 639-1 two-letter code (`en`, `es`, `fr`).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceListResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+  /models/{model}/openapi.json:
+    get:
+      tags:
+      - Models
+      summary: Get Model Openapi
+      description: A standalone one-operation OpenAPI spec for this model's submit call.
+      operationId: models_get_openapi
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Models Get Openapi
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security: []
+  /models/{model}/estimate:
+    post:
+      tags:
+      - Models
+      summary: Estimate
+      description: 'Return what `POST /v3/models/{model}` would charge for this `input`.
+
+
+        Validates `input` against the model''s input schema and returns the price in
+
+        US dollars. Creates no job, charges nothing, and does not check the wallet
+
+        balance. The response includes no completion time: a job''s
+
+        `estimated_completion_at` appears on the submit response, on
+
+        `GET /v3/jobs/{job_id}/status`, and on `GET /v3/jobs/{job_id}/stream`.'
+      operationId: models_estimate
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The model's public id (`GET /v3/models`).
+          title: Model
+        description: The model's public id (`GET /v3/models`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstimateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstimateResponse'
+        '400':
+          description: Invalid or failed-validation request.
+          content:
+            application/json:
+              examples:
+                field_validation:
+                  summary: A submit `input` field failed schema validation
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 2 input fields are invalid (input.aspect_ratio, input.duration_ms); see details.
+                      retryable: false
+                      param: input.aspect_ratio
+                      details:
+                      - field: input.aspect_ratio
+                        message: 'input.aspect_ratio: Input should be ''16:9'', ''9:16'' or ''1:1'''
+                        reason: enum
+                      - field: input.duration_ms
+                        message: 'input.duration_ms: Input should be greater than or equal to 1000'
+                        reason: minimum
+                expired_file_handle:
+                  summary: A `POST /v3/files` handle was submitted past its `expires_at`
+                  value:
+                    error:
+                      code: INVALID_ARGUMENT
+                      message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                      retryable: false
+                      param: input.images[0]
+                      details:
+                      - field: input.images[0]
+                        message: 'input.images[0]: the POST /v3/files url expired at 2026-07-28T23:31:12+00:00. Upload the file again and submit with the fresh url.'
+                        reason: expired
+                unsupported_model:
+                  summary: The model exists but isn't wired to v3 yet
+                  value:
+                    error:
+                      code: FAILED_PRECONDITION
+                      message: Model 'some-model' (VIDEO_STITCHING) is not supported on v3 yet.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient scope or plan.
+          content:
+            application/json:
+              examples:
+                no_workspace_access:
+                  summary: Key no longer reaches its workspace
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: The key's owner is no longer a member of its workspace.
+                      retryable: false
+                missing_scope:
+                  summary: Key lacks a scope the operation requires
+                  value:
+                    error:
+                      code: PERMISSION_DENIED
+                      message: 'Key is missing required scope(s): jobs:write.'
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              examples:
+                job_not_found:
+                  summary: Unknown job id, or not visible to the caller
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Job not found.
+                      retryable: false
+                model_not_found:
+                  summary: No such model in the catalog
+                  value:
+                    error:
+                      code: NOT_FOUND
+                      message: Model 'some-model' not found.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+            X-RateLimit-Limit:
+              description: Request budget for the current window.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in the current window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix epoch second the window resets at.
+              schema:
+                type: integer
+          content:
+            application/json:
+              examples:
+                rate_limited:
+                  summary: Per-key request rate limit exceeded
+                  value:
+                    error:
+                      code: RESOURCE_EXHAUSTED
+                      message: 'Request rate limit exceeded: this API key is limited to 60 requests per 60s. Retry after 30s. To follow job progress without polling, stream job status (https://www.hedra.com/docs/api-reference/v3/jobs/stream-job) or subscribe to webhooks (https://www.hedra.com/docs/api-reference/v3/webhooks).'
+                      retryable: true
+                      retry_after: 30
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error.
+          content:
+            application/json:
+              examples:
+                internal:
+                  summary: Unexpected server error; internals are never leaked
+                  value:
+                    error:
+                      code: INTERNAL
+                      message: An unexpected error occurred
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'Authentication failed: missing, malformed, or invalid credentials.'
+          content:
+            application/json:
+              examples:
+                missing_credentials:
+                  summary: No credential on the request
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: 'Missing credentials. Send ''Authorization: Key <key_id>:<secret>'' or ''Authorization: Bearer <token>''.'
+                      retryable: false
+                invalid_key:
+                  summary: Credential present but not valid
+                  value:
+                    error:
+                      code: UNAUTHORIZED
+                      message: Invalid API key.
+                      retryable: false
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - KeyAuth: []
+      - BearerToken: []
+components:
+  schemas:
+    JobListResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/JobSummary'
+          type: array
+          title: Data
+          description: This page of items.
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+          description: Opaque cursor for the next page, or null when this response completes the list. Always present. Endpoints that serve the whole collection at once always return null.
+      type: object
+      required:
+      - data
+      - next_cursor
+      title: JobListResponse
+    ErrorEnvelope:
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          title: Message
+          description: Human-readable summary of the error. Fixed per condition — match on `code`, not on this text.
+        retryable:
+          type: boolean
+          title: Retryable
+          description: Whether retrying the same request can succeed. Describes the condition, not a promise — pair with `retry_after` when present.
+          default: false
+        retry_after:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Retry After
+          description: Seconds to wait before retrying; set when the error is retryable. Mirrors the `Retry-After` response header.
+        param:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Param
+          description: The primary offending input field, when the error is about one specific field.
+        details:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/FieldError'
+            type: array
+          - type: 'null'
+          title: Details
+          description: Every field-level problem, when the error is a validation failure — all of them at once, not just the first.
+        replaced_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Replaced By
+          description: The id of a successor model, set when the requested model has been retired (code `GONE`) and replaced; null otherwise. Lets a client programmatically migrate off a retired model.
+        billing:
+          anyOf:
+          - $ref: '#/components/schemas/BillingError'
+          - type: 'null'
+          description: Balance, price, and where to add funds — set when the request was refused for funds (code `INSUFFICIENT_BALANCE`); null otherwise.
+        type:
+          $ref: '#/components/schemas/ErrorType'
+          description: 'The OpenAI error type for this error''s HTTP status: `authentication_error` (401), `permission_error` (403), `rate_limit_error` (429), `server_error` (5xx), and `invalid_request_error` for every other status. Match on `code`, which is more specific.'
+          readOnly: true
+      type: object
+      required:
+      - code
+      - message
+      - type
+      title: ErrorEnvelope
+    EstimateResponse:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: The resolved model id this estimate prices.
+        cost:
+          type: number
+          title: Cost
+          description: The price of submitting the request's `input` to the model, in `currency`, after any discount negotiated for the key's workspace.
+        list_cost:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: List Cost
+          description: The model's list price for the same request, in `currency`, before any negotiated discount; equal to `cost` when none applies.
+        discount_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Discount Percent
+          description: The negotiated percentage off the model's list price that `cost` reflects, e.g. 20 or 12.5; null when none applies.
+        currency:
+          type: string
+          title: Currency
+          description: ISO-4217 currency code for `cost`.
+      type: object
+      required:
+      - model
+      - cost
+      - currency
+      title: EstimateResponse
+      description: The price, in US dollars, of submitting the request's `input` to the model.
+    VoiceSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: The voice's id (`voice_<uuid>`); pass it as `input.voice_id` on submit.
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable name.
+        preview_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Url
+          description: URL of a short audio sample of this voice.
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+          title: Labels
+          description: Curation metadata (language, gender, accent, ...).
+      type: object
+      required:
+      - id
+      title: VoiceSummary
+      description: One voice a model accepts; `id` goes into ``input.voice_id`` on submit.
+    VoiceGender:
+      type: string
+      enum:
+      - male
+      - female
+      title: VoiceGender
+      description: 'The `gender` curation label, as a voice search filter.
+
+
+        Two members because the label carries exactly two values across every
+
+        provider; published as an enum so a generated SDK types the filter rather
+
+        than taking any string and failing at the boundary.'
+    VoiceListResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/VoiceSummary'
+          type: array
+          title: Data
+          description: This page of items.
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+          description: Opaque cursor for the next page, or null when this response completes the list. Always present. Endpoints that serve the whole collection at once always return null.
+      type: object
+      required:
+      - data
+      - next_cursor
+      title: VoiceListResponse
+    Modality:
+      type: string
+      enum:
+      - image
+      - video
+      - audio
+      - text
+      title: Modality
+      description: The kind of output a model produces — the axis `?modality=` filters on.
+    ErrorCode:
+      type: string
+      enum:
+      - UNKNOWN
+      - INVALID_ARGUMENT
+      - NOT_FOUND
+      - GONE
+      - ALREADY_EXISTS
+      - ALREADY_IN_PROGRESS
+      - UNAUTHORIZED
+      - PERMISSION_DENIED
+      - INSUFFICIENT_BALANCE
+      - MODERATION_FAILED
+      - FAILED_PRECONDITION
+      - CANCELLED
+      - DEADLINE_EXCEEDED
+      - RESOURCE_EXHAUSTED
+      - UNAVAILABLE
+      - INTERNAL
+      title: ErrorCode
+      description: "Universal error code space. Modeled after gRPC status codes.\n\nEvery exception in the system carries an ErrorCode. SDK clients map\n3rd-party errors to these codes at the lowest level. Retry logic,\nHTTP status mapping, and OTEL metrics all key off this enum.\n\nNOTE: The semantic meaning of these error codes is roughly mapped from the\n    semantic of the gRPC status codes: see\n    https://grpc.io/docs/guides/status-codes/ for details."
+    ModelSummary:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: The model's public id — the value POST /v3/models/{model} takes.
+        modality:
+          $ref: '#/components/schemas/Modality'
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable name.
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: One-line summary of what the model does.
+        price_description:
+          type: string
+          title: Price Description
+          description: Short USD pricing summary for this model. Exact cost depends on input.
+          default: Price varies by generation settings.
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Logo Url
+          description: URL of the provider's logo.
+        context_length:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Context Length
+          description: A chat model's context window in tokens; null for other models.
+        max_output_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Output Tokens
+          description: The largest `max_tokens` a chat model accepts; null for other models.
+      type: object
+      required:
+      - id
+      - modality
+      title: ModelSummary
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
+        trace_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Id
+          description: Debug id to quote to support (32-char hex trace id), also emitted as the `X-Trace-Id` response header.
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+      description: 'Top-level error body: ``{"error": {...}}`` plus a debug id.'
+    BillingError:
+      properties:
+        balance:
+          type: number
+          title: Balance
+          description: Spendable balance on the account this request bills, at the moment it was refused. The same value `GET /balance` returns.
+        required:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Required
+          description: What this request needed. Null when the refusal is a funding precondition rather than a priced one — an upload is not priced, and some models cannot be quoted until their inputs are measured (`POST /models/{model}/estimate` says so explicitly).
+        currency:
+          type: string
+          title: Currency
+          description: ISO-4217 code the amounts above are denominated in.
+          default: USD
+        funding_url:
+          type: string
+          title: Funding Url
+          description: Where a human can add funds to the account this request bills. The API itself cannot add them.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: 'Why the automatic top-up did not fund the balance, when known. `card_declined`: the card that pays for automatic top-ups was declined, and the payment method must be updated on the billing page before a top-up can succeed. Clients MUST tolerate unrecognized values: new reasons may be added at any time.'
+        affordable_output_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Affordable Output Tokens
+          description: On a chat request's refusal, the largest output bound in tokens, `max_tokens` or `max_output_tokens` on `POST /responses`, whose hold the balance covers for this request's prompt. A chat request (`POST /chat/completions`, `POST /responses`, `POST /anthropic/v1/messages`) holds its worst-case price, `required`, until it completes. The balance covers the hold of the same request with this bound until the balance changes. 0 when the balance does not cover the prompt with the model's smallest output bound. Null on every other refusal.
+      type: object
+      required:
+      - balance
+      - funding_url
+      title: BillingError
+      description: 'Why a request was refused for funds, and what would clear it.
+
+
+        The envelope''s structured detail for `INSUFFICIENT_BALANCE`, the way
+
+        `details` is its structured detail for a validation failure. Every amount is
+
+        in `currency`, and `balance` is the same number `GET /balance` returns — so
+
+        a client can decide whether to top up, wait, or fail over without a second
+
+        round trip to work out which balance was short.'
+    JobSummary:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+          description: The job's id — server-issued, and opaque.
+        model:
+          type: string
+          title: Model
+          description: The resolved model id this job ran on.
+        quality:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Quality
+          description: The quality level this job ran at; present only for models that offer quality levels.
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: ISO-8601 instant the job was submitted.
+      type: object
+      required:
+      - job_id
+      - model
+      - status
+      - created_at
+      title: JobSummary
+    ErrorType:
+      type: string
+      enum:
+      - invalid_request_error
+      - authentication_error
+      - permission_error
+      - rate_limit_error
+      - server_error
+      title: ErrorType
+      description: 'The OpenAI error type for an error''s HTTP status, published so an
+
+        OpenAI SDK''s `APIStatusError.type` carries a value.'
+    FieldError:
+      properties:
+        field:
+          type: string
+          title: Field
+          description: Dotted path to the offending input (e.g. `input.resolution`).
+        message:
+          type: string
+          title: Message
+          description: What is wrong with this field's value.
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+          description: Machine-readable hint for which constraint failed ("required", "enum", "type", …).
+        allowed:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allowed
+          description: Accepted values for an enum, or accepted field names on the first unknown-field violation. Omitted on subsequent unknown fields.
+      type: object
+      required:
+      - field
+      - message
+      title: FieldError
+      description: 'One field-level validation problem in a request body.
+
+
+        `field` is the dotted path to the offending input (e.g. `input.resolution`);
+
+        `allowed` lists the accepted values when the field is an enum, so a caller
+
+        can fix it without re-fetching the model schema.'
+    ModelListResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/ModelSummary'
+          type: array
+          title: Data
+          description: This page of items.
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+          description: Opaque cursor for the next page, or null when this response completes the list. Always present. Endpoints that serve the whole collection at once always return null.
+      type: object
+      required:
+      - data
+      - next_cursor
+      title: ModelListResponse
+    ChatTokenPricing:
+      properties:
+        usd_per_1m_input_tokens:
+          type: number
+          title: Usd Per 1M Input Tokens
+          description: USD per million prompt tokens not served from cache. `price_description` states the cached rate where it differs.
+        usd_per_1m_output_tokens:
+          type: number
+          title: Usd Per 1M Output Tokens
+          description: USD per million completion tokens, reasoning tokens included.
+      type: object
+      required:
+      - usd_per_1m_input_tokens
+      - usd_per_1m_output_tokens
+      title: ChatTokenPricing
+    ModelDetail:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: The model's public id — the value POST /v3/models/{model} takes.
+        modality:
+          $ref: '#/components/schemas/Modality'
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Human-readable name.
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+          description: One-line summary of what the model does.
+        price_description:
+          type: string
+          title: Price Description
+          description: Short USD pricing summary for this model. Exact cost depends on input.
+          default: Price varies by generation settings.
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Logo Url
+          description: URL of the provider's logo.
+        context_length:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Context Length
+          description: A chat model's context window in tokens; null for other models.
+        max_output_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Output Tokens
+          description: The largest `max_tokens` a chat model accepts; null for other models.
+        input_schema:
+          additionalProperties: true
+          type: object
+          title: Input Schema
+          description: JSON Schema for this model's `input` object on submit — the same schema `GET /v3/models/{model}/openapi.json` embeds. For a chat model, the JSON Schema of the `POST /v3/chat/completions` request body as this model accepts it; a chat model has no per-model OpenAPI document.
+        output_schema:
+          additionalProperties: true
+          type: object
+          title: Output Schema
+          description: JSON Schema of one item of a completed job's `outputs[]`. Empty for a chat model.
+        chat:
+          anyOf:
+          - $ref: '#/components/schemas/ChatCapabilities'
+          - type: 'null'
+          description: 'The facts about a chat model that its `input_schema` cannot state: token prices, the default output bound and the image limit; null for other models.'
+      type: object
+      required:
+      - id
+      - modality
+      title: ModelDetail
+    ChatCapabilities:
+      properties:
+        default_max_tokens:
+          type: integer
+          title: Default Max Tokens
+          description: The output bound of a request that sets neither `max_tokens` nor `max_completion_tokens`.
+        pricing:
+          $ref: '#/components/schemas/ChatTokenPricing'
+        input_modalities:
+          items:
+            type: string
+          type: array
+          title: Input Modalities
+          description: '`text`, and `image` when the model accepts image parts.'
+        max_images_per_request:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Images Per Request
+          description: The most image parts one request may contain; null when the model accepts no images.
+      type: object
+      required:
+      - default_max_tokens
+      - pricing
+      - input_modalities
+      - max_images_per_request
+      title: ChatCapabilities
+    EstimateRequest:
+      properties:
+        input:
+          additionalProperties: true
+          type: object
+          title: Input
+          description: The same model-specific inputs a submit would carry; the estimate prices exactly this body.
+      type: object
+      title: EstimateRequest
+    JobStatus:
+      type: string
+      enum:
+      - IN_QUEUE
+      - IN_PROGRESS
+      - COMPLETED
+      - FAILED
+      title: JobStatus
+      description: The four states a job can be in.
+  securitySchemes:
+    KeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Primary scheme: `Authorization: Key <key_id>:<secret>`.'
+    BearerToken:
+      type: http
+      scheme: bearer
+      description: '`Authorization: Bearer <credential>` — accepts an API key (`<key_id>:<secret>`) or an ephemeral browser token minted via `POST /tokens` (inherits the minting key''s scopes and workspace).'
