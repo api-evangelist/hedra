@@ -59,16 +59,35 @@ edges:
     detected: '2026-10-18'
   detected_by: sweep-official-sdks.py
   first_seen: '2026-10-18'
+- partner_name: OpenAI
+  partner: openai
+  partner_match: domain
+  type: contract
+  channel: provider-built
+  relationship: compatible
+  direction: provider-built
+  evidence: https://github.com/api-evangelist/hedra/blob/main/openapi/hedra-run-a-model-api-openapi.yml#L26487
+  contract_reference:
+    repo: hedra
+    spec_file: hedra-run-a-model-api-openapi.yml
+    property: description
+    value: OpenAI-compatible
+    note: 'hedra declares OpenAI compatibility: ''description: ''OpenAI-compatible chat completions. Errors use
+      the v3 error body, which the OpenAI SDKs parse: `error.code`, `error.param` and `error.type` popula'''
+    detected_by: sweep-model-routing.py
+    detected: '2026-10-19'
+  detected_by: sweep-model-routing.py
+  first_seen: '2026-10-19'
 generated: '2026-10-18'
 method: searched
 source:
-- https://api.nuget.org/v3
-- https://crates.io/api/v1
-- https://proxy.golang.org
-- https://pypi.org/pypi
 - https://registry.npmjs.org
-- https://repo1.maven.org/maven2
+- https://pypi.org/pypi
 - https://rubygems.org/api/v1
+- https://crates.io/api/v1
+- https://repo1.maven.org/maven2
+- https://api.nuget.org/v3
+- https://proxy.golang.org
 checked:
 - https://api.nuget.org/v3
 - https://crates.io/api/v1
