@@ -1678,3 +1678,9 @@ components:
       type: http
       scheme: bearer
       description: '`Authorization: Bearer <credential>` — accepts an API key (`<key_id>:<secret>`) or an ephemeral browser token minted via `POST /tokens` (inherits the minting key''s scopes and workspace).'
+x-provenance:
+  method: harvested
+  publisher: Hedra
+  source: https://www.hedra.com/openapi.json
+  note: split by refine-openapis from the provider's own published document, verified by fetch (openapi/_original/*.fetch.json);
+    stamped by stamp-openapi-provenance.py (roadmap#793)
